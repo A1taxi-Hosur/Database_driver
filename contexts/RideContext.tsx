@@ -87,12 +87,23 @@ export function RideProvider({ children }: RideProviderProps) {
       console.log('Driver:', driver.user?.full_name)
       console.log('Driver ID:', driver.id)
       console.log('Driver Status:', driver.status)
-      
+
       // Load initial rides
       loadRides()
-      
+
       // Set up real-time subscriptions
       setupRealTimeSubscriptions()
+
+      // Set up auto-refresh every 2 seconds
+      const refreshInterval = setInterval(() => {
+        console.log('🔄 Auto-refreshing rides (2-second interval)...')
+        loadRides()
+      }, 2000)
+
+      return () => {
+        console.log('🛑 Cleaning up auto-refresh interval')
+        clearInterval(refreshInterval)
+      }
     }
   }, [driver])
 
