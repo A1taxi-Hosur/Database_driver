@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -173,6 +173,8 @@ async function handleNotifyDrivers(supabase: any, req: Request) {
       );
     }
 
+    console.log('🚗 Ride vehicle type:', ride.vehicle_type);
+
     if (ride.status !== 'requested') {
       return new Response(
         JSON.stringify({ success: true, message: 'Ride not in requested status' }),
@@ -191,6 +193,8 @@ async function handleNotifyDrivers(supabase: any, req: Request) {
       15
     );
 
+    console.log(`Found ${nearbyDrivers.length} nearby drivers with matching vehicle type: ${ride.vehicle_type}`);
+
     if (nearbyDrivers.length === 0) {
       await supabase
         .from('rides')
@@ -207,7 +211,7 @@ async function handleNotifyDrivers(supabase: any, req: Request) {
     }
 
     let notificationsCreated = 0;
-    
+
     for (const driver of nearbyDrivers) {
       const notificationSent = await sendDriverNotification(supabase, driver, ride);
       if (notificationSent) {
@@ -222,10 +226,10 @@ async function handleNotifyDrivers(supabase: any, req: Request) {
         .update({ status: 'no_drivers_available' })
         .eq('id', ride.id);
     }
-    
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         drivers_found: nearbyDrivers.length,
         notifications_sent: notificationsCreated
       }),
@@ -252,7 +256,7 @@ async function handleAcceptRide(supabase: any, req: Request) {
     console.log('=== ACCEPT RIDE EDGE FUNCTION CALLED ===')
     const body = await req.json();
     const { ride_id, driver_id } = body;
-    
+
     console.log('Request data:', { ride_id, driver_id })
 
     if (!ride_id || !driver_id) {
@@ -269,7 +273,7 @@ async function handleAcceptRide(supabase: any, req: Request) {
     console.log('📝 Attempting to accept ride in database...')
     console.log('Ride ID:', ride_id)
     console.log('Driver ID:', driver_id)
-    
+
     const { data: updatedRide, error } = await supabase
       .from('rides')
       .update({
@@ -286,9 +290,9 @@ async function handleAcceptRide(supabase: any, req: Request) {
     if (error) {
       console.error('Error accepting ride:', error);
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           success: false,
-          error: `Database error: ${error.message}` 
+          error: `Database error: ${error.message}`
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -300,9 +304,9 @@ async function handleAcceptRide(supabase: any, req: Request) {
     if (!updatedRide) {
       console.log('❌ Ride already assigned to another driver or status changed')
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           success: false,
-          error: 'Ride already assigned to another driver or no longer available' 
+          error: 'Ride already assigned to another driver or no longer available'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -482,10 +486,10 @@ async function handleGetNearbyRides(supabase: any, req: Request) {
     });
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         rides: nearbyRides,
-        count: nearbyRides.length 
+        count: nearbyRides.length
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -513,6 +517,9 @@ async function findNearbyDrivers(
   radiusKm: number
 ) {
   try {
+    console.log('=== FINDING NEARBY DRIVERS WITH VEHICLE TYPE FILTER ===');
+    console.log('Required vehicle type:', vehicleType);
+
     const { data: drivers, error } = await supabase
       .from('drivers')
       .select(`
@@ -538,8 +545,10 @@ async function findNearbyDrivers(
       return [];
     }
 
+    console.log(`Found ${drivers.length} online drivers, filtering by vehicle type...`);
+
     const driverUserIds = drivers.map(d => d.user_id);
-    
+
     const { data: locations, error: locationError } = await supabase
       .from('live_locations')
       .select('user_id, latitude, longitude, updated_at')
@@ -560,6 +569,13 @@ async function findNearbyDrivers(
     });
 
     const nearbyDrivers = drivers.filter(driver => {
+      // Check vehicle type match
+      const driverVehicleType = driver.vehicles?.vehicle_type;
+      if (!driverVehicleType || driverVehicleType !== vehicleType) {
+        console.log(`❌ Driver ${driver.user_id} vehicle type mismatch: has ${driverVehicleType}, needs ${vehicleType}`);
+        return false;
+      }
+
       const location = latestLocations.get(driver.user_id);
       if (!location) {
         return false;
@@ -577,8 +593,15 @@ async function findNearbyDrivers(
         location.longitude
       );
 
-      return distance <= radiusKm;
+      if (distance <= radiusKm) {
+        console.log(`✅ Driver ${driver.user_id} matched: ${driverVehicleType}, ${distance.toFixed(1)}km away`);
+        return true;
+      }
+
+      return false;
     });
+
+    console.log(`✅ Final result: ${nearbyDrivers.length} drivers with matching vehicle type ${vehicleType}`);
 
     return nearbyDrivers.map(driver => ({
       ...driver,
@@ -649,15 +672,15 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const R = 6371;
   const dLat = toRadians(lat2 - lat1);
   const dLon = toRadians(lon2 - lon1);
-  
-  const a = 
+
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * 
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  
+
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
-  
+
   return distance;
 }
 
