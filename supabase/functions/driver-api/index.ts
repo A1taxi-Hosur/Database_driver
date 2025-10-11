@@ -569,7 +569,6 @@ async function findNearbyDrivers(
     });
 
     const nearbyDrivers = drivers.filter(driver => {
-      // Check vehicle type match - include AC variants
       const driverVehicleType = driver.vehicles?.vehicle_type;
 
       if (!driverVehicleType) {
@@ -577,8 +576,6 @@ async function findNearbyDrivers(
         return false;
       }
 
-      // Check if driver's vehicle type matches the requested type or its AC variant
-      // Example: if "sedan" is requested, match both "sedan" and "sedan_ac"
       const vehicleTypeMatches =
         driverVehicleType === vehicleType ||
         driverVehicleType === `${vehicleType}_ac`;
