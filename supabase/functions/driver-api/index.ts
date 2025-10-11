@@ -569,12 +569,26 @@ async function findNearbyDrivers(
     });
 
     const nearbyDrivers = drivers.filter(driver => {
-      // Check vehicle type match
+      // Check vehicle type match - include AC variants
       const driverVehicleType = driver.vehicles?.vehicle_type;
-      if (!driverVehicleType || driverVehicleType !== vehicleType) {
-        console.log(`❌ Driver ${driver.user_id} vehicle type mismatch: has ${driverVehicleType}, needs ${vehicleType}`);
+
+      if (!driverVehicleType) {
+        console.log(`❌ Driver ${driver.user_id} has no vehicle type`);
         return false;
       }
+
+      // Check if driver's vehicle type matches the requested type or its AC variant
+      // Example: if "sedan" is requested, match both "sedan" and "sedan_ac"
+      const vehicleTypeMatches =
+        driverVehicleType === vehicleType ||
+        driverVehicleType === `${vehicleType}_ac`;
+
+      if (!vehicleTypeMatches) {
+        console.log(`❌ Driver ${driver.user_id} vehicle type mismatch: has ${driverVehicleType}, needs ${vehicleType} or ${vehicleType}_ac`);
+        return false;
+      }
+
+      console.log(`✅ Driver ${driver.user_id} vehicle type matched: has ${driverVehicleType}, requested ${vehicleType}`);
 
       const location = latestLocations.get(driver.user_id);
       if (!location) {
