@@ -43,18 +43,18 @@ export default function RideRequestModal({
   if (!ride) return null;
 
   const getDistanceToPickup = () => {
-    if (!currentLocation) return null;
-    
+    if (!currentLocation || !ride.pickup_latitude || !ride.pickup_longitude) return null;
+
     const driverCoords = {
       latitude: currentLocation.coords.latitude,
       longitude: currentLocation.coords.longitude,
     };
-    
+
     const pickupCoords = {
       latitude: parseFloat(ride.pickup_latitude.toString()),
       longitude: parseFloat(ride.pickup_longitude.toString()),
     };
-    
+
     return calculateDistance(driverCoords, pickupCoords);
   };
 
