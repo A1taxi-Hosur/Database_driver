@@ -245,10 +245,45 @@ export function RideProvider({ children }: RideProviderProps) {
         setPendingRides([])
       } else {
         console.log(`📋 Found ${notifications?.length || 0} unread ride notifications`)
-        
+
         if (notifications && notifications.length > 0) {
-          // Convert notifications to ride objects
-          const rideRequests = notifications
+          // Get all ride IDs from notifications
+          const rideIds = notifications
+            .filter(n => n.data?.ride_id)
+            .map(n => n.data.ride_id)
+
+          // Fetch actual rides from database to validate they still exist
+          const { data: actualRides, error: ridesError } = await supabaseAdmin
+            .from('rides')
+            .select('id, status, driver_id')
+            .in('id', rideIds)
+            .eq('status', 'requested')
+            .is('driver_id', null)
+
+          if (ridesError) {
+            console.error('Error validating rides:', ridesError)
+          }
+
+          // Create a Set of valid ride IDs
+          const validRideIds = new Set(actualRides?.map(r => r.id) || [])
+          console.log(`✅ ${validRideIds.size} rides are still valid and available`)
+
+          // Only show notifications for rides that still exist and are available
+          const validNotifications = notifications.filter(n => validRideIds.has(n.data?.ride_id))
+
+          // Auto-cleanup invalid notifications
+          const invalidNotifications = notifications.filter(n => !validRideIds.has(n.data?.ride_id))
+          if (invalidNotifications.length > 0) {
+            console.log(`🧹 Cleaning up ${invalidNotifications.length} invalid notifications`)
+            const invalidNotifIds = invalidNotifications.map(n => n.id)
+            await supabaseAdmin
+              .from('notifications')
+              .update({ status: 'read' })
+              .in('id', invalidNotifIds)
+          }
+
+          // Convert valid notifications to ride objects
+          const rideRequests = validNotifications
             .filter(n => n.data?.ride_id)
             .map(n => ({
               id: n.data.ride_id,
