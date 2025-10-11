@@ -373,7 +373,7 @@ export class FareCalculationService {
     // Calculate surge charges
     const subtotalBeforeSurge = baseFare + distanceFare + deadheadCharges;
     const surgeCharges = subtotalBeforeSurge * (surgeMultiplier - 1);
-    
+
     console.log('💰 Surge calculation:', {
       subtotalBeforeSurge,
       type: typeof subtotalBeforeSurge,
@@ -384,52 +384,48 @@ export class FareCalculationService {
       surgeChargesIsNaN: isNaN(surgeCharges)
     });
 
+    // Ensure all components are valid numbers before further calculations
+    const validBaseFare = isNaN(baseFare) ? 0 : baseFare;
+    const validDistanceFare = isNaN(distanceFare) ? 0 : distanceFare;
+    const validDeadheadCharges = isNaN(deadheadCharges) ? 0 : deadheadCharges;
+    const validSurgeCharges = isNaN(surgeCharges) ? 0 : surgeCharges;
+    const validPlatformFee = isNaN(platformFee) ? 10 : platformFee;
+
+    console.log('=== VALIDATED COMPONENTS (BEFORE GST) ===');
+    console.log('- validBaseFare:', validBaseFare);
+    console.log('- validDistanceFare:', validDistanceFare);
+    console.log('- validDeadheadCharges:', validDeadheadCharges);
+    console.log('- validSurgeCharges:', validSurgeCharges);
+    console.log('- validPlatformFee:', validPlatformFee);
+
     // Calculate GST on charges (excluding platform fee) - 5% GST
     const chargesSubtotal = validBaseFare + validDistanceFare + validDeadheadCharges + validSurgeCharges;
     const gstOnCharges = chargesSubtotal * 0.05; // 5% GST on ride charges
-    
+
     console.log('💰 GST on charges calculation:', {
       chargesSubtotal,
       gstOnCharges,
       gstRate: '5%'
     });
 
-    // Calculate total fare with comprehensive debugging
-    console.log('=== TOTAL FARE CALCULATION DEBUG ===');
-    console.log('Components before addition:');
-    console.log('- baseFare:', baseFare, 'type:', typeof baseFare, 'isNaN:', isNaN(baseFare));
-    console.log('- distanceFare:', distanceFare, 'type:', typeof distanceFare, 'isNaN:', isNaN(distanceFare));
-    console.log('- deadheadCharges:', deadheadCharges, 'type:', typeof deadheadCharges, 'isNaN:', isNaN(deadheadCharges));
-    console.log('- surgeCharges:', surgeCharges, 'type:', typeof surgeCharges, 'isNaN:', isNaN(surgeCharges));
-    console.log('- platformFee:', platformFee, 'type:', typeof platformFee, 'isNaN:', isNaN(platformFee));
-    console.log('- gstOnCharges:', gstOnCharges, 'type:', typeof gstOnCharges, 'isNaN:', isNaN(gstOnCharges));
-    
-    // Ensure all components are valid numbers before addition
-    const validBaseFare = isNaN(baseFare) ? 0 : baseFare;
-    const validDistanceFare = isNaN(distanceFare) ? 0 : distanceFare;
-    const validDeadheadCharges = isNaN(deadheadCharges) ? 0 : deadheadCharges;
-    const validSurgeCharges = isNaN(surgeCharges) ? 0 : surgeCharges;
-    const validPlatformFee = isNaN(platformFee) ? 10 : platformFee;
-    const validGstOnCharges = isNaN(gstOnCharges) ? 0 : gstOnCharges;
-    
-    console.log('=== VALIDATED COMPONENTS ===');
-    console.log('- validBaseFare:', validBaseFare);
-    console.log('- validDistanceFare:', validDistanceFare);
-    console.log('- validDeadheadCharges:', validDeadheadCharges);
-    console.log('- validSurgeCharges:', validSurgeCharges);
-    console.log('- validPlatformFee:', validPlatformFee);
-    console.log('- validGstOnCharges:', validGstOnCharges);
-    
-    const totalFare = validBaseFare + validDistanceFare + validDeadheadCharges + validSurgeCharges + validPlatformFee + validGstOnCharges + gstOnPlatformFee;
-    
-    console.log('=== FINAL TOTAL FARE ===');
-    console.log('totalFare result:', totalFare, 'type:', typeof totalFare, 'isNaN:', isNaN(totalFare));
-    
-    // Add GST debugging
-    const gstOnPlatformFee = validPlatformFee * 0.18; // 18% GST on platform fee
+    // Calculate GST on platform fee - 18% GST
+    const gstOnPlatformFee = validPlatformFee * 0.18;
     console.log('GST on platform fee calculation:');
     console.log('- validPlatformFee for GST:', validPlatformFee, 'type:', typeof validPlatformFee, 'isNaN:', isNaN(validPlatformFee));
     console.log('- gstOnPlatformFee result:', gstOnPlatformFee, 'type:', typeof gstOnPlatformFee, 'isNaN:', isNaN(gstOnPlatformFee));
+
+    const validGstOnCharges = isNaN(gstOnCharges) ? 0 : gstOnCharges;
+    const validGstOnPlatformFee = isNaN(gstOnPlatformFee) ? 0 : gstOnPlatformFee;
+
+    console.log('=== VALIDATED GST COMPONENTS ===');
+    console.log('- validGstOnCharges:', validGstOnCharges);
+    console.log('- validGstOnPlatformFee:', validGstOnPlatformFee);
+
+    // Calculate total fare
+    const totalFare = validBaseFare + validDistanceFare + validDeadheadCharges + validSurgeCharges + validPlatformFee + validGstOnCharges + validGstOnPlatformFee;
+
+    console.log('=== FINAL TOTAL FARE ===');
+    console.log('totalFare result:', totalFare, 'type:', typeof totalFare, 'isNaN:', isNaN(totalFare));
     
     console.log('💰 Regular fare breakdown:', {
       baseFare: validBaseFare,
@@ -438,7 +434,7 @@ export class FareCalculationService {
       surgeCharges: validSurgeCharges,
       platformFee: validPlatformFee,
       gstOnCharges: validGstOnCharges,
-      gstOnPlatformFee,
+      gstOnPlatformFee: validGstOnPlatformFee,
       totalFare,
     });
 
@@ -447,12 +443,12 @@ export class FareCalculationService {
       vehicle_type: vehicleType,
       base_fare: validBaseFare,
       distance_fare: validDistanceFare,
-      time_fare: 0, // No time fare for regular rides
+      time_fare: 0,
       surge_charges: validSurgeCharges,
       deadhead_charges: validDeadheadCharges,
       platform_fee: validPlatformFee,
       gst_on_charges: validGstOnCharges,
-      gst_on_platform_fee: gstOnPlatformFee,
+      gst_on_platform_fee: validGstOnPlatformFee,
       extra_km_charges: 0,
       driver_allowance: 0,
       total_fare: totalFare,
