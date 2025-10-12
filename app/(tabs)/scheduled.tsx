@@ -84,52 +84,48 @@ export default function ScheduledScreen() {
       console.log('=== LOADING SCHEDULED BOOKINGS ===');
       console.log('Driver ID:', driver.id);
 
-      // Get admin-assigned rides for this driver
-      const { data: assignedRides, error: assignedError } = await supabaseAdmin
-        .from('rides')
+      // Get assigned scheduled bookings (admin has assigned to this driver)
+      const { data: assignedBookings, error: assignedError } = await supabaseAdmin
+        .from('scheduled_bookings')
         .select(`
           *,
-          customer:users!rides_customer_id_fkey(
+          customer:users!scheduled_bookings_customer_id_fkey(
             full_name,
             phone_number,
             email
           )
         `)
-        .eq('driver_id', driver.id)
-        .eq('assigned_by_admin', true)
-        .in('booking_type', ['rental', 'outstation', 'airport'])
-        .in('status', ['accepted', 'driver_arrived', 'in_progress'])
+        .eq('assigned_driver_id', driver.id)
+        .in('status', ['assigned', 'confirmed', 'driver_arrived', 'in_progress'])
         .order('scheduled_time', { ascending: true });
 
       if (assignedError) {
-        console.error('Error loading assigned rides:', assignedError);
+        console.error('Error loading assigned bookings:', assignedError);
         setCurrentBooking(null);
       } else {
-        const activeBooking = assignedRides && assignedRides.length > 0 ? assignedRides[0] : null;
+        const activeBooking = assignedBookings && assignedBookings.length > 0 ? assignedBookings[0] : null;
         setCurrentBooking(activeBooking);
         console.log('Current booking:', activeBooking?.id);
       }
 
-      // Get available admin rides (assigned by admin to this driver but not yet accepted)
-      const { data: availableRides, error: availableError } = await supabaseAdmin
-        .from('rides')
+      // Get available scheduled bookings (pending, waiting for driver confirmation)
+      const { data: availableBookings, error: availableError } = await supabaseAdmin
+        .from('scheduled_bookings')
         .select(`
           *,
-          customer:users!rides_customer_id_fkey(
+          customer:users!scheduled_bookings_customer_id_fkey(
             full_name,
             phone_number,
             email
           )
         `)
-        .eq('driver_id', driver.id)
-        .eq('assigned_by_admin', true)
-        .in('booking_type', ['rental', 'outstation', 'airport'])
-        .eq('status', 'requested')
+        .eq('assigned_driver_id', driver.id)
+        .eq('status', 'pending')
         .order('scheduled_time', { ascending: true })
         .limit(10);
 
       if (availableError) {
-        console.error('Error loading available rides:', availableError);
+        console.error('Error loading available bookings:', availableError);
         setScheduledBookings([]);
       } else {
         setScheduledBookings(availableBookings || []);
