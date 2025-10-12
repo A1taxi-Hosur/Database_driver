@@ -42,6 +42,8 @@ export default function RideRequestModal({
 
   if (!ride) return null;
 
+  console.log('🚗 RideRequestModal - Full ride object:', JSON.stringify(ride, null, 2));
+
   const getDistanceToPickup = () => {
     if (!currentLocation || !ride.pickup_latitude || !ride.pickup_longitude) return null;
 
@@ -59,21 +61,53 @@ export default function RideRequestModal({
   };
 
   const getTripDistance = () => {
+    console.log('🔍 getTripDistance - checking coordinates:', {
+      pickup_latitude: ride.pickup_latitude,
+      pickup_longitude: ride.pickup_longitude,
+      destination_latitude: ride.destination_latitude,
+      destination_longitude: ride.destination_longitude,
+    });
+
     if (!ride.pickup_latitude || !ride.pickup_longitude || !ride.destination_latitude || !ride.destination_longitude) {
+      console.warn('⚠️ Missing coordinates for trip distance calculation');
       return null;
     }
 
-    const pickupCoords = {
-      latitude: parseFloat(ride.pickup_latitude.toString()),
-      longitude: parseFloat(ride.pickup_longitude.toString()),
-    };
+    try {
+      const pickupLat = parseFloat(ride.pickup_latitude.toString());
+      const pickupLng = parseFloat(ride.pickup_longitude.toString());
+      const destLat = parseFloat(ride.destination_latitude.toString());
+      const destLng = parseFloat(ride.destination_longitude.toString());
 
-    const destinationCoords = {
-      latitude: parseFloat(ride.destination_latitude.toString()),
-      longitude: parseFloat(ride.destination_longitude.toString()),
-    };
+      console.log('🔍 Parsed coordinates:', {
+        pickupLat,
+        pickupLng,
+        destLat,
+        destLng,
+      });
 
-    return calculateDistance(pickupCoords, destinationCoords);
+      if (isNaN(pickupLat) || isNaN(pickupLng) || isNaN(destLat) || isNaN(destLng)) {
+        console.warn('⚠️ Invalid coordinate values (NaN)');
+        return null;
+      }
+
+      const pickupCoords = {
+        latitude: pickupLat,
+        longitude: pickupLng,
+      };
+
+      const destinationCoords = {
+        latitude: destLat,
+        longitude: destLng,
+      };
+
+      const distance = calculateDistance(pickupCoords, destinationCoords);
+      console.log('✅ Calculated trip distance:', distance, 'km');
+      return distance;
+    } catch (error) {
+      console.error('❌ Error calculating trip distance:', error);
+      return null;
+    }
   };
 
   const getRideTypeColor = (type: string) => {
@@ -189,7 +223,9 @@ export default function RideRequestModal({
               <MapPin size={20} color="#F59E0B" />
               <View style={styles.statInfo}>
                 <Text style={styles.statValue}>
-                  {tripDistance ? `${tripDistance.toFixed(1)}km` : (ride.distance_km ? `${ride.distance_km}km` : 'Calculating...')}
+                  {tripDistance !== null && tripDistance !== undefined
+                    ? `${tripDistance.toFixed(1)}km`
+                    : (ride.distance_km ? `${ride.distance_km}km` : 'N/A')}
                 </Text>
                 <Text style={styles.statLabel}>Trip Distance</Text>
               </View>
