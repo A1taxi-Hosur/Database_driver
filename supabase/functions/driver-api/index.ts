@@ -92,25 +92,37 @@ Deno.serve(async (req: Request) => {
     const path = url.pathname;
 
     console.log('Driver API called:', path, req.method);
+    console.log('Full URL:', req.url);
 
-    if (path.includes('/notify-drivers') && req.method === 'POST') {
+    if (path.includes('notify-drivers') && req.method === 'POST') {
+      console.log('Routing to handleNotifyDrivers');
       return await handleNotifyDrivers(supabase, req);
     }
 
-    if (path.includes('/accept-ride') && req.method === 'POST') {
+    if (path.includes('accept-ride') && req.method === 'POST') {
+      console.log('Routing to handleAcceptRide');
       return await handleAcceptRide(supabase, req);
     }
 
-    if (path.includes('/update-ride-status') && req.method === 'POST') {
+    if (path.includes('update-ride-status') && req.method === 'POST') {
+      console.log('Routing to handleUpdateRideStatus');
       return await handleUpdateRideStatus(supabase, req);
     }
 
-    if (path.includes('/get-nearby-rides') && req.method === 'GET') {
+    if (path.includes('get-nearby-rides') && req.method === 'GET') {
+      console.log('Routing to handleGetNearbyRides');
       return await handleGetNearbyRides(supabase, req);
     }
 
+    console.log('No route matched - returning 404');
+    console.log('Available routes: notify-drivers, accept-ride, update-ride-status, get-nearby-rides');
     return new Response(
-      JSON.stringify({ error: 'Endpoint not found' }),
+      JSON.stringify({
+        error: 'Endpoint not found',
+        path: path,
+        method: req.method,
+        available_routes: ['POST /notify-drivers', 'POST /accept-ride', 'POST /update-ride-status', 'GET /get-nearby-rides']
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 404,
