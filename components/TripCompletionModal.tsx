@@ -187,7 +187,7 @@ export default function TripCompletionModal({
             ) : (
               // REGULAR/OUTSTATION/AIRPORT FARE BREAKDOWN - Full detailed view
               <>
-                {/* Base Fare */}
+                {/* Base Fare - Always show */}
                 <View style={styles.fareItem}>
                   <Text style={styles.fareLabel}>
                     {tripData.fareBreakdown.details?.package_name ||
@@ -198,55 +198,69 @@ export default function TripCompletionModal({
                   <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.base_fare)}</Text>
                 </View>
 
-                {/* Distance Charges */}
-                <View style={styles.fareItem}>
-                  <Text style={styles.fareLabel}>
-                    Distance Charges
-                    {tripData.fareBreakdown.details?.extra_km &&
-                     ` (${tripData.fareBreakdown.details?.extra_km.toFixed(1)}km × ₹${tripData.fareBreakdown.details?.per_km_rate}/km)`}
-                  </Text>
-                  <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.distance_fare)}</Text>
-                </View>
+                {/* Distance Charges - Only if > 0 */}
+                {tripData.fareBreakdown.distance_fare > 0 && (
+                  <View style={styles.fareItem}>
+                    <Text style={styles.fareLabel}>
+                      Distance Charges
+                      {tripData.fareBreakdown.details?.extra_km &&
+                       ` (${tripData.fareBreakdown.details?.extra_km.toFixed(1)}km × ₹${tripData.fareBreakdown.details?.per_km_rate}/km)`}
+                    </Text>
+                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.distance_fare)}</Text>
+                  </View>
+                )}
 
-                {/* Time Charges */}
-                <View style={styles.fareItem}>
-                  <Text style={styles.fareLabel}>
-                    Time Charges ({tripData.duration} min × ₹{tripData.fareBreakdown.details?.per_minute_rate || 0}/min)
-                  </Text>
-                  <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.time_fare)}</Text>
-                </View>
+                {/* Time Charges - Only if > 0 */}
+                {tripData.fareBreakdown.time_fare > 0 && (
+                  <View style={styles.fareItem}>
+                    <Text style={styles.fareLabel}>
+                      Time Charges ({tripData.duration} min × ₹{tripData.fareBreakdown.details?.per_minute_rate || 0}/min)
+                    </Text>
+                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.time_fare)}</Text>
+                  </View>
+                )}
 
-                {/* Deadhead Charges */}
-                <View style={styles.fareItem}>
-                  <Text style={styles.fareLabel}>Deadhead Charges</Text>
-                  <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.deadhead_charges)}</Text>
-                </View>
+                {/* Deadhead Charges - Only if > 0 */}
+                {tripData.fareBreakdown.deadhead_charges > 0 && (
+                  <View style={styles.fareItem}>
+                    <Text style={styles.fareLabel}>Deadhead Charges</Text>
+                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.deadhead_charges)}</Text>
+                  </View>
+                )}
 
-                {/* Surge Charges */}
-                <View style={styles.fareItem}>
-                  <Text style={styles.fareLabel}>
-                    Surge Charges ({tripData.fareBreakdown.details?.surge_multiplier || 1}x)
-                  </Text>
-                  <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.surge_charges)}</Text>
-                </View>
+                {/* Surge Charges - Only if > 0 */}
+                {tripData.fareBreakdown.surge_charges > 0 && (
+                  <View style={styles.fareItem}>
+                    <Text style={styles.fareLabel}>
+                      Surge Charges ({tripData.fareBreakdown.details?.surge_multiplier || 1}x)
+                    </Text>
+                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.surge_charges)}</Text>
+                  </View>
+                )}
 
-                {/* Platform Fee */}
-                <View style={styles.fareItem}>
-                  <Text style={styles.fareLabel}>Platform Fee</Text>
-                  <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.platform_fee)}</Text>
-                </View>
+                {/* Platform Fee - Only if > 0 */}
+                {tripData.fareBreakdown.platform_fee > 0 && (
+                  <View style={styles.fareItem}>
+                    <Text style={styles.fareLabel}>Platform Fee</Text>
+                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.platform_fee)}</Text>
+                  </View>
+                )}
 
-                {/* GST on Charges */}
-                <View style={styles.fareItem}>
-                  <Text style={styles.fareLabel}>GST on Charges (5%)</Text>
-                  <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.gst_on_charges)}</Text>
-                </View>
+                {/* GST on Charges - Only if > 0 */}
+                {tripData.fareBreakdown.gst_on_charges > 0 && (
+                  <View style={styles.fareItem}>
+                    <Text style={styles.fareLabel}>GST on Charges (5%)</Text>
+                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.gst_on_charges)}</Text>
+                  </View>
+                )}
 
-                {/* GST on Platform Fee */}
-                <View style={styles.fareItem}>
-                  <Text style={styles.fareLabel}>GST on Platform Fee (18%)</Text>
-                  <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.gst_on_platform_fee)}</Text>
-                </View>
+                {/* GST on Platform Fee - Only if > 0 */}
+                {tripData.fareBreakdown.gst_on_platform_fee > 0 && (
+                  <View style={styles.fareItem}>
+                    <Text style={styles.fareLabel}>GST on Platform Fee (18%)</Text>
+                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.gst_on_platform_fee)}</Text>
+                  </View>
+                )}
 
                 {/* Extra KM Charges (Outstation) */}
                 {tripData.fareBreakdown.extra_km_charges > 0 && (
