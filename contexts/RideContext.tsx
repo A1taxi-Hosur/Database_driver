@@ -283,8 +283,9 @@ export function RideProvider({ children }: RideProviderProps) {
           }
 
           // Convert valid notifications to ride objects
+          // Only show regular rides in pendingRides - rental/outstation/airport are admin-assigned
           const rideRequests = validNotifications
-            .filter(n => n.data?.ride_id)
+            .filter(n => n.data?.ride_id && n.data?.booking_type === 'regular')
             .map(n => ({
               id: n.data.ride_id,
               ride_code: n.data.ride_code || 'N/A',

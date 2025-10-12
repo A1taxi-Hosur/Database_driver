@@ -185,7 +185,29 @@ async function handleNotifyDrivers(supabase: any, req: Request) {
       );
     }
 
-    console.log('🚗 Ride vehicle type:', ride.vehicle_type);
+    console.log('🚗 Ride details:', {
+      vehicle_type: ride.vehicle_type,
+      booking_type: ride.booking_type,
+      assigned_by_admin: ride.assigned_by_admin
+    });
+
+    // Only notify drivers for regular rides
+    // Rental, outstation, and airport rides are assigned by admin
+    if (ride.booking_type !== 'regular') {
+      console.log('⚠️ Skipping driver notification - this is a', ride.booking_type, 'ride (admin-assigned only)');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `${ride.booking_type} rides are assigned by admin, not notified to drivers`,
+          ride_id: ride_id,
+          booking_type: ride.booking_type
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      );
+    }
 
     if (ride.status !== 'requested') {
       return new Response(
