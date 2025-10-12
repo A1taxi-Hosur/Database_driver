@@ -905,6 +905,7 @@ async function calculateAirportFare(
   dropLat: number,
   dropLng: number
 ) {
+  // Fetch airport fare package
   const { data: airportFares, error } = await supabaseAdmin
     .from('airport_fares')
     .select('*')
@@ -918,34 +919,59 @@ async function calculateAirportFare(
   }
 
   const airportConfig = airportFares[0];
-  
-  // Determine direction based on coordinates
+
+  // Determine direction based on coordinates (Hosur center coordinates)
   const cityCenter = { lat: 12.7401984, lng: 77.824 };
-  
+
   const pickupToCenter = calculateDistance(pickupLat, pickupLng, cityCenter.lat, cityCenter.lng);
   const dropToCenter = calculateDistance(dropLat, dropLng, cityCenter.lat, cityCenter.lng);
-  
+
   const isHosurToAirport = pickupToCenter < dropToCenter;
-  const fare = isHosurToAirport ? airportConfig.hosur_to_airport_fare : airportConfig.airport_to_hosur_fare;
+  const packageFare = isHosurToAirport ? airportConfig.hosur_to_airport_fare : airportConfig.airport_to_hosur_fare;
+
+  // Fetch platform fee for airport bookings
+  const { data: platformFees, error: platformFeeError } = await supabaseAdmin
+    .from('platform_fees')
+    .select('*')
+    .eq('booking_type', 'airport')
+    .eq('is_active', true)
+    .limit(1);
+
+  if (platformFeeError) {
+    console.error('Error fetching platform fee:', platformFeeError);
+  }
+
+  const platformFee = platformFees && platformFees.length > 0 ? Number(platformFees[0].fee_amount) : 0;
+
+  // Calculate charges
+  const gstOnPackage = Number(packageFare) * 0.05; // 5% GST on package value
+  const gstOnPlatformFee = platformFee * 0.18; // 18% GST on platform fee
+
+  const totalFare = Number(packageFare) + gstOnPackage + platformFee + gstOnPlatformFee;
 
   return {
     booking_type: 'airport',
     vehicle_type: vehicleType,
-    base_fare: fare,
+    base_fare: Number(packageFare),
     distance_fare: 0,
     time_fare: 0,
     surge_charges: 0,
     deadhead_charges: 0,
-    platform_fee: 0,
-    gst_on_charges: 0,
-    gst_on_platform_fee: 0,
+    platform_fee: platformFee,
+    gst_on_charges: gstOnPackage,
+    gst_on_platform_fee: gstOnPlatformFee,
     extra_km_charges: 0,
     driver_allowance: 0,
-    total_fare: fare,
+    total_fare: totalFare,
     details: {
       actual_distance_km: calculateDistance(pickupLat, pickupLng, dropLat, dropLng),
       actual_duration_minutes: 0,
-      per_km_rate: 0
+      per_km_rate: 0,
+      direction: isHosurToAirport ? 'Hosur to Airport' : 'Airport to Hosur',
+      package_fare: Number(packageFare),
+      gst_on_package: gstOnPackage,
+      platform_fee: platformFee,
+      gst_on_platform_fee: gstOnPlatformFee
     }
   };
 }
