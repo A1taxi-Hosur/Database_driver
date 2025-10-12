@@ -9,10 +9,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  MapPin, 
-  Clock, 
-  DollarSign, 
+import {
+  MapPin,
+  Clock,
+  IndianRupee,
   Star,
   Calendar,
   Filter,
@@ -257,7 +257,7 @@ export default function HistoryScreen() {
           </View>
           
           <View style={styles.statCard}>
-            <DollarSign size={20} color="#10B981" />
+            <IndianRupee size={20} color="#10B981" />
             <Text style={styles.statValue}>₹{stats.totalEarnings.toFixed(0)}</Text>
             <Text style={styles.statLabel}>Total Earnings</Text>
           </View>
@@ -373,7 +373,7 @@ export default function HistoryScreen() {
 
                 <View style={styles.rideStats}>
                   <View style={styles.statItem}>
-                    <DollarSign size={16} color="#10B981" />
+                    <IndianRupee size={16} color="#10B981" />
                     <View style={styles.statInfo}>
                       <Text style={styles.statText}>₹{ride.fare_amount || 'N/A'}</Text>
                       <Text style={styles.statSubtext}>

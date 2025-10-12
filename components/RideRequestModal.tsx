@@ -7,11 +7,11 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
-import { 
-  MapPin, 
-  Clock, 
-  DollarSign, 
-  User, 
+import {
+  MapPin,
+  Clock,
+  IndianRupee,
+  User,
   Star,
   Navigation,
   Phone,
@@ -58,6 +58,24 @@ export default function RideRequestModal({
     return calculateDistance(driverCoords, pickupCoords);
   };
 
+  const getTripDistance = () => {
+    if (!ride.pickup_latitude || !ride.pickup_longitude || !ride.destination_latitude || !ride.destination_longitude) {
+      return null;
+    }
+
+    const pickupCoords = {
+      latitude: parseFloat(ride.pickup_latitude.toString()),
+      longitude: parseFloat(ride.pickup_longitude.toString()),
+    };
+
+    const destinationCoords = {
+      latitude: parseFloat(ride.destination_latitude.toString()),
+      longitude: parseFloat(ride.destination_longitude.toString()),
+    };
+
+    return calculateDistance(pickupCoords, destinationCoords);
+  };
+
   const getRideTypeColor = (type: string) => {
     switch (type) {
       case 'rental': return '#8B5CF6';
@@ -67,7 +85,8 @@ export default function RideRequestModal({
     }
   };
 
-  const distance = getDistanceToPickup();
+  const distanceToPickup = getDistanceToPickup();
+  const tripDistance = getTripDistance();
 
   return (
     <Modal
@@ -149,28 +168,28 @@ export default function RideRequestModal({
           {/* Trip Stats */}
           <View style={styles.statsSection}>
             <View style={styles.statItem}>
-              <DollarSign size={20} color="#10B981" />
+              <IndianRupee size={20} color="#10B981" />
               <View style={styles.statInfo}>
                 <Text style={styles.statValue}>₹{ride.fare_amount || 'TBD'}</Text>
                 <Text style={styles.statLabel}>Estimated Fare</Text>
               </View>
             </View>
-            
-            {distance && (
+
+            {distanceToPickup && (
               <View style={styles.statItem}>
                 <Navigation size={20} color="#2563EB" />
                 <View style={styles.statInfo}>
-                  <Text style={styles.statValue}>{distance.toFixed(1)}km</Text>
+                  <Text style={styles.statValue}>{distanceToPickup.toFixed(1)}km</Text>
                   <Text style={styles.statLabel}>Distance to Pickup</Text>
                 </View>
               </View>
             )}
-            
+
             <View style={styles.statItem}>
-              <Clock size={20} color="#F59E0B" />
+              <MapPin size={20} color="#F59E0B" />
               <View style={styles.statInfo}>
                 <Text style={styles.statValue}>
-                  {ride.distance_km ? `${ride.distance_km}km` : 'TBD'}
+                  {tripDistance ? `${tripDistance.toFixed(1)}km` : (ride.distance_km ? `${ride.distance_km}km` : 'Calculating...')}
                 </Text>
                 <Text style={styles.statLabel}>Trip Distance</Text>
               </View>

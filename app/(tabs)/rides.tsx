@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MapPin, Clock, DollarSign, User, Navigation, Phone, CircleCheck as CheckCircle, Circle as XCircle, CircleAlert as AlertCircle, Car, Power } from 'lucide-react-native';
+import { MapPin, Clock, IndianRupee, User, Navigation, Phone, CircleCheck as CheckCircle, Circle as XCircle, CircleAlert as AlertCircle, Car, Power } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRide } from '../../contexts/RideContext';
 import { useLocation } from '../../contexts/LocationContext';
@@ -447,7 +447,7 @@ export default function RidesScreen() {
               {/* Ride Stats */}
               <View style={styles.rideStats}>
                 <View style={styles.statItem}>
-                  <DollarSign size={16} color="#10B981" />
+                  <IndianRupee size={16} color="#10B981" />
                   <Text style={styles.statText}>₹{currentRide.fare_amount || 'TBD'}</Text>
                 </View>
                 <View style={styles.statItem}>

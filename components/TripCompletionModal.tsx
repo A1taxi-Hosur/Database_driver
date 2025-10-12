@@ -7,7 +7,7 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
-import { CircleCheck as CheckCircle, MapPin, Clock, DollarSign, X } from 'lucide-react-native';
+import { CircleCheck as CheckCircle, MapPin, Clock, X } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 

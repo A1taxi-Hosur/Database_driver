@@ -10,10 +10,10 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  DollarSign, 
-  TrendingUp, 
-  Calendar, 
+import {
+  IndianRupee,
+  TrendingUp,
+  Calendar,
   CreditCard,
   Clock,
   Car
@@ -308,7 +308,7 @@ export default function EarningsScreen() {
           </View>
           
           <View style={styles.statCard}>
-            <DollarSign size={24} color="#10B981" />
+            <IndianRupee size={24} color="#10B981" />
             <Text style={styles.statValue}>{formatCurrency(earnings.avgPerRide)}</Text>
             <Text style={styles.statLabel}>Avg per Ride</Text>
           </View>
@@ -341,7 +341,7 @@ export default function EarningsScreen() {
             </View>
             
             <View style={styles.paymentMethod}>
-              <DollarSign size={20} color="#10B981" />
+              <IndianRupee size={20} color="#10B981" />
               <View style={styles.paymentMethodInfo}>
                 <Text style={styles.paymentMethodLabel}>Cash Payments</Text>
                 <Text style={styles.paymentMethodAmount}>

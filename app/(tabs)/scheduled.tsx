@@ -10,11 +10,11 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
+import {
   Calendar,
-  MapPin, 
-  Clock, 
-  DollarSign, 
+  MapPin,
+  Clock,
+  IndianRupee,
   User,
   Navigation,
   Phone,
@@ -597,7 +597,7 @@ export default function ScheduledScreen() {
             {/* Booking Details */}
             <View style={styles.bookingDetails}>
               <View style={styles.detailItem}>
-                <DollarSign size={16} color="#10B981" />
+                <IndianRupee size={16} color="#10B981" />
                 <Text style={styles.detailText}>₹{currentBooking.estimated_fare || 'TBD'}</Text>
               </View>
               
@@ -701,7 +701,7 @@ export default function ScheduledScreen() {
 
                   <View style={styles.bookingStats}>
                     <View style={styles.statItem}>
-                      <DollarSign size={16} color="#10B981" />
+                      <IndianRupee size={16} color="#10B981" />
                       <Text style={styles.statText}>₹{booking.estimated_fare || 'TBD'}</Text>
                     </View>
                     

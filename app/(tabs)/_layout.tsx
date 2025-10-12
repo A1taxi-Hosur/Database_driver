@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { Redirect } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { Navigation, DollarSign, Clock, User, Calendar } from 'lucide-react-native';
+import { Navigation, IndianRupee, Clock, User, Calendar } from 'lucide-react-native';
 
 export default function TabLayout() {
   const { session, loading } = useAuth();
@@ -70,7 +70,7 @@ export default function TabLayout() {
         options={{
           title: 'Earnings',
           tabBarIcon: ({ size, color }) => (
-            <DollarSign size={size} color={color} />
+            <IndianRupee size={size} color={color} />
           ),
         }}
       />
