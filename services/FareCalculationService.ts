@@ -468,7 +468,7 @@ export class FareCalculationService {
   }
 
   /**
-   * Rental ride fare calculation
+   * Rental ride fare calculation - using actual distance and duration
    */
   private static async calculateRentalFare(
     vehicleType: string,
@@ -476,10 +476,11 @@ export class FareCalculationService {
     actualDurationMinutes: number,
     selectedHours: number
   ): Promise<FareBreakdown> {
-    console.log('=== CALCULATING RENTAL FARE ===');
+    console.log('=== CALCULATING RENTAL FARE (ACTUAL DISTANCE & TIME) ===');
     console.log('Vehicle Type:', vehicleType);
     console.log('Selected Hours:', selectedHours);
     console.log('Actual Distance:', actualDistanceKm, 'km');
+    console.log('Actual Duration:', actualDurationMinutes, 'minutes');
 
     // Get rental fare for the selected package
     const { data: rentalFares, error } = await supabaseAdmin
@@ -500,35 +501,58 @@ export class FareCalculationService {
     const baseFare = rentalFare.base_fare;
     const kmIncluded = rentalFare.km_included;
     const extraKmRate = rentalFare.extra_km_rate;
+    const extraMinuteRate = rentalFare.extra_minute_rate || 0;
 
     console.log('✅ Rental package details:', {
       package_name: rentalFare.package_name,
       base_fare: baseFare,
       km_included: kmIncluded,
-      extra_km_rate: extraKmRate
+      extra_km_rate: extraKmRate,
+      extra_minute_rate: extraMinuteRate
     });
-    let extraKmCharges = 0;
-    let withinAllowance = true;
 
-    // Check if actual distance exceeds package allowance
+    // Calculate extra KM charges based on ACTUAL distance
+    let extraKmCharges = 0;
+    let extraKm = 0;
     if (actualDistanceKm > kmIncluded) {
-      const extraKm = actualDistanceKm - kmIncluded;
+      extraKm = actualDistanceKm - kmIncluded;
       extraKmCharges = extraKm * extraKmRate;
-      withinAllowance = false;
-      console.log('⚠️ Distance exceeds package allowance:', {
-        extraKm,
-        extraKmRate,
-        extraKmCharges
+      console.log('⚠️ Extra distance charges:', {
+        actual_distance: actualDistanceKm,
+        km_included: kmIncluded,
+        extra_km: extraKm,
+        extra_km_rate: extraKmRate,
+        extra_km_charges: extraKmCharges
       });
     } else {
       console.log('✅ Distance within package allowance');
     }
 
-    const totalFare = baseFare + extraKmCharges;
-    
-    console.log('💰 Rental fare breakdown:', {
+    // Calculate extra time charges based on ACTUAL duration
+    let extraTimeCharges = 0;
+    let extraMinutes = 0;
+    const packageMinutes = selectedHours * 60;
+    if (actualDurationMinutes > packageMinutes) {
+      extraMinutes = actualDurationMinutes - packageMinutes;
+      extraTimeCharges = extraMinutes * extraMinuteRate;
+      console.log('⚠️ Extra time charges:', {
+        actual_duration_minutes: actualDurationMinutes,
+        package_minutes: packageMinutes,
+        extra_minutes: extraMinutes,
+        extra_minute_rate: extraMinuteRate,
+        extra_time_charges: extraTimeCharges
+      });
+    } else {
+      console.log('✅ Duration within package allowance');
+    }
+
+    const withinAllowance = extraKmCharges === 0 && extraTimeCharges === 0;
+    const totalFare = baseFare + extraKmCharges + extraTimeCharges;
+
+    console.log('💰 Rental fare breakdown (actual usage):', {
       baseFare,
       extraKmCharges,
+      extraTimeCharges,
       totalFare,
       withinAllowance
     });
@@ -537,8 +561,8 @@ export class FareCalculationService {
       booking_type: 'rental',
       vehicle_type: vehicleType,
       base_fare: baseFare,
-      distance_fare: 0,
-      time_fare: 0,
+      distance_fare: extraKmCharges,
+      time_fare: extraTimeCharges,
       surge_charges: 0,
       deadhead_charges: 0,
       platform_fee: 0,
@@ -551,8 +575,9 @@ export class FareCalculationService {
         actual_distance_km: actualDistanceKm,
         actual_duration_minutes: actualDurationMinutes,
         base_km_included: kmIncluded,
-        extra_km: Math.max(0, actualDistanceKm - kmIncluded),
+        extra_km: extraKm,
         per_km_rate: extraKmRate,
+        per_minute_rate: extraMinuteRate,
         within_allowance: withinAllowance,
         package_name: rentalFare.package_name
       }
