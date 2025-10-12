@@ -769,6 +769,7 @@ async function calculateRentalFare(
   actualDurationMinutes: number,
   selectedHours: number
 ) {
+  // Fetch rental fare package
   const { data: rentalFares, error } = await supabaseAdmin
     .from('rental_fares')
     .select('*')
@@ -783,7 +784,7 @@ async function calculateRentalFare(
   }
 
   const rentalFare = rentalFares[0];
-  const baseFare = rentalFare.base_fare;
+  const baseFare = Number(rentalFare.base_fare);
   const kmIncluded = rentalFare.km_included;
   const extraKmRate = rentalFare.extra_km_rate;
 
@@ -796,7 +797,28 @@ async function calculateRentalFare(
     withinAllowance = false;
   }
 
-  const totalFare = baseFare + extraKmCharges;
+  // Fetch platform fee for rental bookings
+  const { data: platformFees, error: platformFeeError } = await supabaseAdmin
+    .from('platform_fees')
+    .select('*')
+    .eq('booking_type', 'rental')
+    .eq('is_active', true)
+    .limit(1);
+
+  if (platformFeeError) {
+    console.error('Error fetching platform fee:', platformFeeError);
+  }
+
+  const platformFee = platformFees && platformFees.length > 0 ? Number(platformFees[0].fee_amount) : 0;
+
+  // Calculate total package charges (base fare + extra km charges)
+  const packageCharges = baseFare + extraKmCharges;
+
+  // Calculate GST
+  const gstOnCharges = packageCharges * 0.05; // 5% GST on package charges
+  const gstOnPlatformFee = platformFee * 0.18; // 18% GST on platform fee
+
+  const totalFare = packageCharges + gstOnCharges + platformFee + gstOnPlatformFee;
 
   return {
     booking_type: 'rental',
@@ -806,9 +828,9 @@ async function calculateRentalFare(
     time_fare: 0,
     surge_charges: 0,
     deadhead_charges: 0,
-    platform_fee: 0,
-    gst_on_charges: 0,
-    gst_on_platform_fee: 0,
+    platform_fee: platformFee,
+    gst_on_charges: gstOnCharges,
+    gst_on_platform_fee: gstOnPlatformFee,
     extra_km_charges: extraKmCharges,
     driver_allowance: 0,
     total_fare: totalFare,
@@ -819,7 +841,11 @@ async function calculateRentalFare(
       extra_km: Math.max(0, actualDistanceKm - kmIncluded),
       per_km_rate: extraKmRate,
       within_allowance: withinAllowance,
-      package_name: rentalFare.package_name
+      package_name: rentalFare.package_name,
+      package_charges: packageCharges,
+      gst_on_package: gstOnCharges,
+      platform_fee: platformFee,
+      gst_on_platform_fee: gstOnPlatformFee
     }
   };
 }

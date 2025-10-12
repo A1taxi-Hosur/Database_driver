@@ -128,7 +128,7 @@ export default function TripCompletionModal({
             <Text style={styles.sectionTitle}>Fare Breakdown</Text>
 
             {tripData.booking_type === 'rental' ? (
-              // RENTAL FARE BREAKDOWN - Simplified view using actual distance
+              // RENTAL FARE BREAKDOWN
               <>
                 {/* Base Fare with Package Details */}
                 <View style={styles.fareItem}>
@@ -161,6 +161,30 @@ export default function TripCompletionModal({
                        ` (₹${tripData.fareBreakdown.details?.per_minute_rate}/min)`}
                     </Text>
                     <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.time_fare)}</Text>
+                  </View>
+                )}
+
+                {/* Platform Fee - Only if > 0 */}
+                {tripData.fareBreakdown.platform_fee > 0 && (
+                  <View style={styles.fareItem}>
+                    <Text style={styles.fareLabel}>Platform Fee</Text>
+                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.platform_fee)}</Text>
+                  </View>
+                )}
+
+                {/* GST on Charges - Only if > 0 */}
+                {tripData.fareBreakdown.gst_on_charges > 0 && (
+                  <View style={styles.fareItem}>
+                    <Text style={styles.fareLabel}>GST on Charges (5%)</Text>
+                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.gst_on_charges)}</Text>
+                  </View>
+                )}
+
+                {/* GST on Platform Fee - Only if > 0 */}
+                {tripData.fareBreakdown.gst_on_platform_fee > 0 && (
+                  <View style={styles.fareItem}>
+                    <Text style={styles.fareLabel}>GST on Platform Fee (18%)</Text>
+                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.gst_on_platform_fee)}</Text>
                   </View>
                 )}
 
