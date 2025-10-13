@@ -248,10 +248,15 @@ export default function TripCompletionModal({
                   </View>
                 )}
 
-                {/* Deadhead Charges - Only if > 0 */}
+                {/* Deadhead Charges - Only if > 0 and between zones */}
                 {tripData.fareBreakdown.deadhead_charges > 0 && (
                   <View style={styles.fareItem}>
-                    <Text style={styles.fareLabel}>Deadhead Charges</Text>
+                    <Text style={styles.fareLabel}>
+                      Deadhead Charges{'\n'}
+                      <Text style={styles.fareSubLabel}>
+                        (Drop-off between Inner & Outer Ring)
+                      </Text>
+                    </Text>
                     <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.deadhead_charges)}</Text>
                   </View>
                 )}
@@ -453,6 +458,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
     flex: 1,
+  },
+  fareSubLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontStyle: 'italic',
   },
   fareValue: {
     fontSize: 14,
