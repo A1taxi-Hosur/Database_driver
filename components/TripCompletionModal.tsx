@@ -97,13 +97,17 @@ export default function TripCompletionModal({
             <View style={styles.summaryRow}>
               <MapPin size={20} color="#64748B" />
               <Text style={styles.summaryLabel}>Distance:</Text>
-              <Text style={styles.summaryValue}>{tripData.distance.toFixed(2)} km (Actual)</Text>
+              <Text style={styles.summaryValue}>
+                {(tripData.fareBreakdown.details?.actual_distance_km || tripData.distance).toFixed(2)} km (Actual)
+              </Text>
             </View>
-            
+
             <View style={styles.summaryRow}>
               <Clock size={20} color="#64748B" />
               <Text style={styles.summaryLabel}>Duration:</Text>
-              <Text style={styles.summaryValue}>{tripData.duration} minutes (Actual)</Text>
+              <Text style={styles.summaryValue}>
+                {tripData.fareBreakdown.details?.actual_duration_minutes || tripData.duration} minutes (Actual)
+              </Text>
             </View>
           </View>
 
@@ -191,7 +195,7 @@ export default function TripCompletionModal({
                 {/* Trip Summary */}
                 <View style={styles.fareItem}>
                   <Text style={styles.fareLabel}>
-                    Actual Usage: {tripData.distance.toFixed(1)}km in {tripData.duration}min
+                    Actual Usage: {(tripData.fareBreakdown.details?.actual_distance_km || tripData.distance).toFixed(1)}km in {tripData.fareBreakdown.details?.actual_duration_minutes || tripData.duration}min
                   </Text>
                   <Text style={[styles.fareValue, tripData.fareBreakdown.details?.within_allowance ? styles.withinPackage : styles.extraCharges]}>
                     {tripData.fareBreakdown.details?.within_allowance ? 'Within Package' : 'Extra Charges Applied'}
@@ -306,20 +310,10 @@ export default function TripCompletionModal({
                   </View>
                 )}
 
-                {/* Zone Information */}
-                {tripData.fareBreakdown.details?.zone_detected && !tripData.fareBreakdown.details?.is_inner_zone && (
-                  <View style={styles.fareItem}>
-                    <Text style={styles.fareLabel}>Zone: {tripData.fareBreakdown.details?.zone_detected}</Text>
-                    <Text style={styles.fareValue}>
-                      Outer Zone
-                    </Text>
-                  </View>
-                )}
-
                 {/* Trip Summary */}
                 <View style={styles.fareItem}>
                   <Text style={styles.fareLabel}>
-                    Trip Summary: {tripData.distance.toFixed(1)}km in {tripData.duration}min
+                    Trip Summary: {tripData.fareBreakdown.details?.actual_distance_km?.toFixed(1) || tripData.distance.toFixed(1)}km in {tripData.fareBreakdown.details?.actual_duration_minutes || tripData.duration}min
                   </Text>
                   <Text style={styles.fareValue}>
                     {tripData.fareBreakdown.details?.within_allowance !== undefined
