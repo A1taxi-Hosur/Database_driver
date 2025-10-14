@@ -597,6 +597,113 @@ export class FareCalculationService {
     console.log('Vehicle Type:', vehicleType);
     console.log('Actual GPS-tracked Distance:', actualDistanceKm, 'km');
 
+    const startTime = scheduledTime ? new Date(scheduledTime) : new Date();
+    const endTime = new Date();
+    const durationHours = Math.abs(endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+    const numberOfDays = Math.max(1, Math.ceil(durationHours / 24));
+
+    console.log('📅 Trip duration calculation:', {
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      durationHours,
+      numberOfDays,
+    });
+
+    const isSameDayTrip = numberOfDays === 1;
+    const useSlab = isSameDayTrip && actualDistanceKm <= 150;
+
+    console.log('🔍 Fare calculation method decision:', {
+      isSameDayTrip,
+      actualDistanceKm,
+      useSlab,
+      method: useSlab ? 'SLAB SYSTEM' : 'PER-KM SYSTEM'
+    });
+
+    if (useSlab) {
+      const { data: slabPackages, error: slabError } = await supabaseAdmin
+        .from('outstation_packages')
+        .select('*')
+        .eq('vehicle_type', vehicleType)
+        .eq('is_active', true)
+        .eq('use_slab_system', true)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (slabError || !slabPackages || slabPackages.length === 0) {
+        console.error('⚠️ Slab package not found, falling back to per-km');
+      } else {
+        const slabPackage = slabPackages[0];
+
+        const slabs = [
+          { limit: 10, fare: slabPackage.slab_10km },
+          { limit: 20, fare: slabPackage.slab_20km },
+          { limit: 30, fare: slabPackage.slab_30km },
+          { limit: 40, fare: slabPackage.slab_40km },
+          { limit: 50, fare: slabPackage.slab_50km },
+          { limit: 60, fare: slabPackage.slab_60km },
+          { limit: 70, fare: slabPackage.slab_70km },
+          { limit: 80, fare: slabPackage.slab_80km },
+          { limit: 90, fare: slabPackage.slab_90km },
+          { limit: 100, fare: slabPackage.slab_100km },
+          { limit: 110, fare: slabPackage.slab_110km },
+          { limit: 120, fare: slabPackage.slab_120km },
+          { limit: 130, fare: slabPackage.slab_130km },
+          { limit: 140, fare: slabPackage.slab_140km },
+          { limit: 150, fare: slabPackage.slab_150km }
+        ];
+
+        let selectedSlab = slabs[slabs.length - 1];
+        for (const slab of slabs) {
+          if (actualDistanceKm <= slab.limit) {
+            selectedSlab = slab;
+            break;
+          }
+        }
+
+        const slabFare = parseFloat(selectedSlab.fare?.toString() || '0');
+        const extraKm = Math.max(0, actualDistanceKm - selectedSlab.limit);
+        const extraKmCharges = extraKm > 0 ? extraKm * parseFloat(slabPackage.extra_km_rate?.toString() || '0') : 0;
+        const totalFare = slabFare + extraKmCharges;
+
+        console.log('💰 SLAB CALCULATION:', {
+          selectedSlab: `${selectedSlab.limit}km`,
+          slabFare,
+          extraKm,
+          extraKmRate: slabPackage.extra_km_rate,
+          extraKmCharges,
+          totalFare,
+          note: 'No driver allowance for same-day trips ≤150km'
+        });
+
+        return {
+          booking_type: 'outstation',
+          vehicle_type: vehicleType,
+          base_fare: slabFare,
+          distance_fare: 0,
+          time_fare: 0,
+          surge_charges: 0,
+          deadhead_charges: 0,
+          platform_fee: 0,
+          gst_on_charges: 0,
+          gst_on_platform_fee: 0,
+          extra_km_charges: extraKmCharges,
+          driver_allowance: 0,
+          total_fare: totalFare,
+          details: {
+            actual_distance_km: actualDistanceKm,
+            actual_duration_minutes: actualDurationMinutes,
+            per_km_rate: parseFloat(slabPackage.extra_km_rate?.toString() || '0'),
+            days_calculated: 1,
+            within_allowance: extraKm === 0,
+            package_name: `${selectedSlab.limit}km Slab`,
+            extra_km: extraKm,
+            base_km_included: selectedSlab.limit,
+            total_km_travelled: actualDistanceKm
+          }
+        };
+      }
+    }
+
     const { data: outstationFares, error } = await supabaseAdmin
       .from('outstation_fares')
       .select('*')
@@ -616,63 +723,48 @@ export class FareCalculationService {
     const driverAllowancePerDay = outstationConfig.driver_allowance_per_day;
     const dailyKmLimit = outstationConfig.daily_km_limit;
 
-    console.log('✅ Outstation config loaded:', {
+    console.log('✅ Per-KM config loaded:', {
       base_fare: baseFare,
       per_km_rate: perKmRate,
       driver_allowance_per_day: driverAllowancePerDay,
       daily_km_limit: dailyKmLimit
     });
 
-    const startTime = scheduledTime ? new Date(scheduledTime) : new Date();
-    const endTime = new Date();
-    const durationHours = Math.abs(endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-    const numberOfDays = Math.max(1, Math.ceil(durationHours / 24));
-
-    console.log('📅 Trip duration calculation:', {
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
-      durationHours,
-      numberOfDays,
-    });
-
     const totalKmTravelled = actualDistanceKm;
     const totalKmAllowance = dailyKmLimit * numberOfDays;
     const driverAllowance = numberOfDays * driverAllowancePerDay;
 
-    console.log('🚗 Outstation distance calculation:', {
+    console.log('🚗 Per-KM distance calculation:', {
       actualGPSDistance: actualDistanceKm,
       totalKmTravelled,
       dailyKmLimit,
       numberOfDays,
       totalKmAllowance,
-      driverAllowance,
-      note: 'Using actual GPS-tracked distance (includes full trip path)'
+      driverAllowance
     });
 
     let kmFare = 0;
     let withinAllowance = true;
 
     if (totalKmTravelled <= totalKmAllowance) {
-      // Within allowance: base_fare + dailyKmLimit * numberOfDays * perKmRate + driverAllowancePerDay * numberOfDays
       kmFare = dailyKmLimit * numberOfDays * perKmRate;
       withinAllowance = true;
-      console.log('✅ Within daily allowance calculation:', {
+      console.log('✅ Within daily allowance:', {
         kmFare,
         calculation: `${dailyKmLimit} × ${numberOfDays} × ${perKmRate} = ${kmFare}`
       });
     } else {
-      // Exceeds allowance: total km * price per km + driver allowance + base fare
       kmFare = totalKmTravelled * perKmRate;
       withinAllowance = false;
-      console.log('⚠️ Exceeds daily allowance calculation:', {
+      console.log('⚠️ Exceeds daily allowance:', {
         kmFare,
         calculation: `${totalKmTravelled} × ${perKmRate} = ${kmFare}`
       });
     }
 
     const totalFare = baseFare + kmFare + driverAllowance;
-    
-    console.log('💰 Outstation fare breakdown:', {
+
+    console.log('💰 Per-KM fare breakdown:', {
       baseFare,
       kmFare,
       driverAllowance,
