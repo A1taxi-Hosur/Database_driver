@@ -1021,6 +1021,17 @@ export class FareCalculationService {
 
     // Drop-off is BETWEEN inner and outer zones - apply deadhead charges
     // Calculate distance from drop-off to Hosur Bus Stand
+    console.log('🎯 DEADHEAD ZONE DETECTED - Calculating charges...');
+    console.log('Input parameters:', {
+      dropLat,
+      dropLng,
+      hosurLat: HOSUR_BUS_STAND.lat,
+      hosurLng: HOSUR_BUS_STAND.lng,
+      perKmRate,
+      perKmRateType: typeof perKmRate,
+      perKmRateIsNaN: isNaN(perKmRate)
+    });
+
     const distanceToHosurBusStand = calculateDistance(
       dropLat,
       dropLng,
@@ -1028,8 +1039,15 @@ export class FareCalculationService {
       HOSUR_BUS_STAND.lng
     );
 
+    console.log('Distance to Hosur Bus Stand calculated:', {
+      distance: distanceToHosurBusStand,
+      distanceType: typeof distanceToHosurBusStand,
+      distanceIsNaN: isNaN(distanceToHosurBusStand)
+    });
+
     // Deadhead charges = (distance from drop-off to Hosur Bus Stand / 2) * per km rate
-    const deadheadCharges = (distanceToHosurBusStand / 2) * perKmRate;
+    const halfDistance = distanceToHosurBusStand / 2;
+    const deadheadCharges = halfDistance * perKmRate;
 
     console.log('📍 Drop-off is BETWEEN inner and outer ring zones - applying deadhead charges:', {
       distanceToInnerCenter: distanceToInnerCenter.toFixed(2) + 'km',
@@ -1037,8 +1055,12 @@ export class FareCalculationService {
       distanceToOuterCenter: distanceToOuterCenter.toFixed(2) + 'km',
       outerRadius: outerRadiusKm + 'km',
       distanceToHosurBusStand: distanceToHosurBusStand.toFixed(2) + 'km',
+      halfDistance: halfDistance.toFixed(2) + 'km',
       perKmRate: perKmRate,
-      deadheadCharges: deadheadCharges.toFixed(2),
+      deadheadCharges: deadheadCharges,
+      deadheadChargesType: typeof deadheadCharges,
+      deadheadChargesIsNaN: isNaN(deadheadCharges),
+      deadheadChargesFixed: deadheadCharges.toFixed(2),
       calculation: `(${distanceToHosurBusStand.toFixed(2)} / 2) × ${perKmRate} = ${deadheadCharges.toFixed(2)}`
     });
 
