@@ -42,11 +42,9 @@ export default function RideRequestModal({
   const [tripDistance, setTripDistance] = useState<number | null>(null);
   const [loadingDistance, setLoadingDistance] = useState(false);
 
-  if (!ride) return null;
-
-  console.log('🚗 RideRequestModal - Full ride object:', JSON.stringify(ride, null, 2));
-
   useEffect(() => {
+    if (!ride) return;
+
     const fetchTripDistance = async () => {
       console.log('🗺️ Fetching trip distance from Google Maps...');
 
@@ -97,6 +95,10 @@ export default function RideRequestModal({
       fetchTripDistance();
     }
   }, [visible, ride?.id, ride?.pickup_latitude, ride?.pickup_longitude, ride?.destination_latitude, ride?.destination_longitude]);
+
+  if (!ride) return null;
+
+  console.log('🚗 RideRequestModal - Full ride object:', JSON.stringify(ride, null, 2));
 
   const getDistanceToPickup = () => {
     if (!currentLocation || !ride.pickup_latitude || !ride.pickup_longitude) return null;
