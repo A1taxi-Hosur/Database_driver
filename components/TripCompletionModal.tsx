@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Modal,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { CircleCheck as CheckCircle, MapPin, Clock, X } from 'lucide-react-native';
 
@@ -92,34 +93,40 @@ export default function TripCompletionModal({
             </TouchableOpacity>
           </View>
 
-          {/* Trip Summary */}
-          <View style={styles.tripSummary}>
-            <View style={styles.summaryRow}>
-              <MapPin size={20} color="#64748B" />
-              <Text style={styles.summaryLabel}>Distance:</Text>
-              <Text style={styles.summaryValue}>
-                {(tripData.fareBreakdown.details?.actual_distance_km || tripData.distance).toFixed(2)} km
-                {tripData.booking_type === 'outstation' ? ' (GPS-tracked)' : ' (Actual)'}
-              </Text>
-            </View>
-
-            <View style={styles.summaryRow}>
-              <Clock size={20} color="#64748B" />
-              <Text style={styles.summaryLabel}>Duration:</Text>
-              <Text style={styles.summaryValue}>
-                {tripData.fareBreakdown.details?.actual_duration_minutes || tripData.duration} minutes (Actual)
-              </Text>
-            </View>
-
-            {tripData.booking_type === 'outstation' && tripData.fareBreakdown.details?.days_calculated && (
+          {/* Scrollable Content */}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={true}
+          >
+            {/* Trip Summary */}
+            <View style={styles.tripSummary}>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Trip Duration:</Text>
+                <MapPin size={20} color="#64748B" />
+                <Text style={styles.summaryLabel}>Distance:</Text>
                 <Text style={styles.summaryValue}>
-                  {tripData.fareBreakdown.details.days_calculated} day{tripData.fareBreakdown.details.days_calculated > 1 ? 's' : ''}
+                  {(tripData.fareBreakdown.details?.actual_distance_km || tripData.distance).toFixed(2)} km
+                  {tripData.booking_type === 'outstation' ? ' (GPS-tracked)' : ' (Actual)'}
                 </Text>
               </View>
-            )}
-          </View>
+
+              <View style={styles.summaryRow}>
+                <Clock size={20} color="#64748B" />
+                <Text style={styles.summaryLabel}>Duration:</Text>
+                <Text style={styles.summaryValue}>
+                  {tripData.fareBreakdown.details?.actual_duration_minutes || tripData.duration} minutes (Actual)
+                </Text>
+              </View>
+
+              {tripData.booking_type === 'outstation' && tripData.fareBreakdown.details?.days_calculated && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Trip Duration:</Text>
+                  <Text style={styles.summaryValue}>
+                    {tripData.fareBreakdown.details.days_calculated} day{tripData.fareBreakdown.details.days_calculated > 1 ? 's' : ''}
+                  </Text>
+                </View>
+              )}
+            </View>
 
           {/* Route Details */}
           <View style={styles.routeSection}>
@@ -371,6 +378,7 @@ export default function TripCompletionModal({
               </>
             )}
           </View>
+          </ScrollView>
 
           {/* Action Button */}
           <TouchableOpacity style={styles.doneButton} onPress={onClose}>
@@ -394,8 +402,14 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 40,
-    maxHeight: '80%',
+    paddingBottom: 20,
+    maxHeight: '90%',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   header: {
     flexDirection: 'row',
@@ -534,7 +548,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 16,
+    marginBottom: 20,
   },
   doneButtonText: {
     fontSize: 16,

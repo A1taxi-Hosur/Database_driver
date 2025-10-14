@@ -635,17 +635,40 @@ export function RideProvider({ children }: RideProviderProps) {
         destination: ride.destination_address
       })
 
-      // Calculate actual distance and duration
-      const actualDistanceKm = 5.2 // Using test value for now
-      const actualDurationMinutes = 45 // Using test value for now
+      // Calculate actual GPS distance using Haversine formula
+      const pickupLat = parseFloat(ride.pickup_latitude.toString())
+      const pickupLng = parseFloat(ride.pickup_longitude.toString())
+      const destLat = parseFloat(ride.destination_latitude.toString())
+      const destLng = parseFloat(ride.destination_longitude.toString())
 
-      console.log('🚨 Trip metrics:', {
-        actualDistanceKm,
+      const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+        const R = 6371 // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180
+        const dLon = (lon2 - lon1) * Math.PI / 180
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return R * c
+      }
+
+      const actualDistanceKm = calculateDistance(pickupLat, pickupLng, destLat, destLng)
+
+      // Calculate actual duration from ride start time to now
+      const rideStartTime = ride.created_at ? new Date(ride.created_at).getTime() : Date.now()
+      const currentTime = Date.now()
+      const actualDurationMinutes = Math.round((currentTime - rideStartTime) / (1000 * 60))
+
+      console.log('🚨 Trip metrics (GPS-calculated):', {
+        actualDistanceKm: actualDistanceKm.toFixed(2),
         actualDurationMinutes,
-        pickupLat: ride.pickup_latitude,
-        pickupLng: ride.pickup_longitude,
-        dropLat: ride.destination_latitude,
-        dropLng: ride.destination_longitude
+        pickupLat,
+        pickupLng,
+        dropLat: destLat,
+        dropLng: destLng,
+        rideStartTime: new Date(rideStartTime).toISOString(),
+        currentTime: new Date(currentTime).toISOString()
       })
 
       // Calculate fare using FareCalculationService
