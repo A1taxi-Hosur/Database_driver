@@ -106,7 +106,7 @@ export default function TripCompletionModal({
                 <Text style={styles.summaryLabel}>Distance:</Text>
                 <Text style={styles.summaryValue}>
                   {(tripData.fareBreakdown.details?.actual_distance_km || tripData.distance).toFixed(2)} km
-                  {tripData.booking_type === 'outstation' ? ' (GPS-tracked)' : ' (Actual)'}
+                  {tripData.booking_type === 'outstation' ? ' (GPS-tracked)' : ' (Road Distance)'}
                 </Text>
               </View>
 

@@ -58,7 +58,9 @@ export default {
       ]
     ],
     extra: {
-      googleMapsApiKey: "AIzaSyBIHJUk4DuAG7tjp_gIdNhUJdpBKN1eM2Q"
+      googleMapsApiKey: "AIzaSyBIHJUk4DuAG7tjp_gIdNhUJdpBKN1eM2Q",
+      supabaseUrl: "https://whubaypabojomdyfqxcf.supabase.co",
+      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWJheXBhYm9qb21keWZxeGNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MDYwMzEsImV4cCI6MjA3MjI4MjAzMX0.0LUHKqX1wdFnmk3KRdyv1lceMxurg_OksZKQ1apn0og"
     },
     experiments: {
       typedRoutes: true

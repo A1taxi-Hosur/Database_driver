@@ -294,25 +294,49 @@ export async function getRouteInfo(
   destination: Coordinates
 ): Promise<{ distance: string; duration: string; distanceValue: number; durationValue: number } | null> {
   try {
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin.latitude},${origin.longitude}&destinations=${destination.latitude},${destination.longitude}&key=${GOOGLE_MAPS_API_KEY}&units=metric`
-    );
-    
+    console.log('🗺️ getRouteInfo called with:', { origin, destination });
+
+    const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 'https://whubaypabojomdyfqxcf.supabase.co';
+    const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWJheXBhYm9qb21keWZxeGNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MDYwMzEsImV4cCI6MjA3MjI4MjAzMX0.0LUHKqX1wdFnmk3KRdyv1lceMxurg_OksZKQ1apn0og';
+
+    const url = `${supabaseUrl}/functions/v1/calculate-distance`;
+    console.log('📡 Calling edge function:', url);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`,
+      },
+      body: JSON.stringify({ origin, destination }),
+    });
+
+    console.log('📥 Edge function response status:', response.status);
+
+    if (!response.ok) {
+      console.error('❌ Edge function returned error:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('❌ Error details:', errorText);
+      return null;
+    }
+
     const data = await response.json();
-    
-    if (data.status === 'OK' && data.rows[0]?.elements[0]?.status === 'OK') {
-      const element = data.rows[0].elements[0];
+    console.log('✅ Distance calculation result from edge function:', data);
+
+    if (data.distanceValue && data.durationValue) {
       return {
-        distance: element.distance.text,
-        duration: element.duration.text,
-        distanceValue: element.distance.value / 1000, // Convert to km
-        durationValue: element.duration.value / 60, // Convert to minutes
+        distance: data.distance,
+        duration: data.duration,
+        distanceValue: data.distanceValue,
+        durationValue: data.durationValue,
       };
     }
-    
+
+    console.warn('⚠️ Edge function returned incomplete data:', data);
     return null;
   } catch (error) {
-    console.error('Error fetching route info:', error);
+    console.error('❌ Error in getRouteInfo:', error);
+    console.error('❌ Error message:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
