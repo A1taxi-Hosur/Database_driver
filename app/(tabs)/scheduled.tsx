@@ -888,7 +888,7 @@ async function calculateOutstationFare(
   let withinAllowance = true;
 
   if (actualDistanceKm <= totalKmAllowance) {
-    distanceFare = 0;
+    distanceFare = dailyKmLimit * numberOfDays * perKmRate;
     extraKmCharges = 0;
     withinAllowance = true;
   } else {
@@ -897,7 +897,23 @@ async function calculateOutstationFare(
     withinAllowance = false;
   }
 
-  const totalFare = baseFare + distanceFare + driverAllowance;
+  // Get platform fee from fare matrix
+  const { data: fareMatrix } = await supabaseAdmin
+    .from('fare_matrix')
+    .select('platform_fee')
+    .eq('booking_type', 'outstation')
+    .eq('vehicle_type', vehicleType)
+    .eq('is_active', true)
+    .single();
+
+  const platformFee = parseFloat(fareMatrix?.platform_fee?.toString() || '10');
+
+  // Calculate GST
+  const chargesSubtotal = baseFare + distanceFare + driverAllowance;
+  const gstOnCharges = chargesSubtotal * 0.05; // 5% GST
+  const gstOnPlatformFee = platformFee * 0.18; // 18% GST
+
+  const totalFare = Math.round(baseFare + distanceFare + driverAllowance + platformFee + gstOnCharges + gstOnPlatformFee);
 
   return {
     booking_type: 'outstation',
@@ -907,9 +923,9 @@ async function calculateOutstationFare(
     time_fare: 0,
     surge_charges: 0,
     deadhead_charges: 0,
-    platform_fee: 0,
-    gst_on_charges: 0,
-    gst_on_platform_fee: 0,
+    platform_fee: platformFee,
+    gst_on_charges: gstOnCharges,
+    gst_on_platform_fee: gstOnPlatformFee,
     extra_km_charges: extraKmCharges,
     driver_allowance: driverAllowance,
     total_fare: totalFare,
@@ -919,7 +935,9 @@ async function calculateOutstationFare(
       per_km_rate: perKmRate,
       days_calculated: numberOfDays,
       daily_km_limit: dailyKmLimit,
-      within_allowance: withinAllowance
+      within_allowance: withinAllowance,
+      total_km_travelled: actualDistanceKm,
+      km_allowance: totalKmAllowance
     }
   };
 }
