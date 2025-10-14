@@ -235,8 +235,10 @@ export default function TripCompletionModal({
                 {/* Base Fare - Always show */}
                 <View style={styles.fareItem}>
                   <Text style={styles.fareLabel}>
-                    {tripData.fareBreakdown.details?.package_name ||
-                     `${((tripData.fareBreakdown.booking_type || 'regular') + '').charAt(0).toUpperCase() + ((tripData.fareBreakdown.booking_type || 'regular') + '').slice(1)} Base Fare`}
+                    {tripData.booking_type === 'outstation' && tripData.fareBreakdown.details?.package_name
+                      ? `${tripData.fareBreakdown.details.package_name} Fare`
+                      : tripData.fareBreakdown.details?.package_name ||
+                        `${((tripData.fareBreakdown.booking_type || 'regular') + '').charAt(0).toUpperCase() + ((tripData.fareBreakdown.booking_type || 'regular') + '').slice(1)} Base Fare`}
                     {tripData.fareBreakdown.details?.base_km_included &&
                      ` (${tripData.fareBreakdown.details?.base_km_included}km included)`}
                   </Text>
@@ -247,21 +249,13 @@ export default function TripCompletionModal({
                 {tripData.fareBreakdown.distance_fare > 0 && (
                   <View style={styles.fareItem}>
                     <Text style={styles.fareLabel}>
-                      {tripData.booking_type === 'outstation' ? 'Distance Charges' : 'Distance Charges'}
+                      {tripData.booking_type === 'outstation' ? 'Per KM Charges' : 'Distance Charges'}
                       {tripData.booking_type === 'outstation' && tripData.fareBreakdown.details?.total_km_travelled
-                        ? `\n(${tripData.fareBreakdown.details.total_km_travelled.toFixed(1)}km × ₹${tripData.fareBreakdown.details?.per_km_rate}/km)`
+                        ? `\n${tripData.fareBreakdown.details.total_km_travelled.toFixed(1)}km × ₹${tripData.fareBreakdown.details?.per_km_rate}/km`
                         : tripData.fareBreakdown.details?.extra_km
                           ? ` (${tripData.fareBreakdown.details?.extra_km.toFixed(1)}km × ₹${tripData.fareBreakdown.details?.per_km_rate}/km)`
                           : ''
                       }
-                      {tripData.booking_type === 'outstation' && '\n'}
-                      {tripData.booking_type === 'outstation' && (
-                        <Text style={styles.fareSubLabel}>
-                          {tripData.fareBreakdown.details?.within_allowance
-                            ? `Within ${tripData.fareBreakdown.details?.daily_km_limit}km/day limit`
-                            : 'Exceeded daily km limit'}
-                        </Text>
-                      )}
                     </Text>
                     <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.distance_fare)}</Text>
                   </View>

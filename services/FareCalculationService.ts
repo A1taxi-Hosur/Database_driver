@@ -679,7 +679,24 @@ export class FareCalculationService {
         const slabFare = parseFloat(selectedSlab.fare?.toString() || '0');
         const extraKm = Math.max(0, actualDistanceKm - selectedSlab.limit);
         const extraKmCharges = extraKm > 0 ? extraKm * parseFloat(slabPackage.extra_km_rate?.toString() || '0') : 0;
-        const totalFareRaw = slabFare + extraKmCharges;
+
+        // Get platform fee from fare matrix
+        const { data: fareMatrix } = await supabaseAdmin
+          .from('fare_matrix')
+          .select('platform_fee')
+          .eq('booking_type', 'outstation')
+          .eq('vehicle_type', vehicleType)
+          .eq('is_active', true)
+          .single();
+
+        const platformFee = parseFloat(fareMatrix?.platform_fee?.toString() || '10');
+
+        // Calculate GST
+        const chargesSubtotal = slabFare + extraKmCharges;
+        const gstOnCharges = chargesSubtotal * 0.05; // 5% GST
+        const gstOnPlatformFee = platformFee * 0.18; // 18% GST
+
+        const totalFareRaw = slabFare + extraKmCharges + platformFee + gstOnCharges + gstOnPlatformFee;
         const totalFare = Math.round(totalFareRaw);
 
         console.log('💰 SLAB CALCULATION:', {
@@ -688,6 +705,9 @@ export class FareCalculationService {
           extraKm,
           extraKmRate: slabPackage.extra_km_rate,
           extraKmCharges,
+          platformFee,
+          gstOnCharges,
+          gstOnPlatformFee,
           totalFareRaw,
           totalFare,
           note: 'No driver allowance for same-day trips ≤150km'
@@ -701,9 +721,9 @@ export class FareCalculationService {
           time_fare: 0,
           surge_charges: 0,
           deadhead_charges: 0,
-          platform_fee: 0,
-          gst_on_charges: 0,
-          gst_on_platform_fee: 0,
+          platform_fee: platformFee,
+          gst_on_charges: gstOnCharges,
+          gst_on_platform_fee: gstOnPlatformFee,
           extra_km_charges: extraKmCharges,
           driver_allowance: 0,
           total_fare: totalFare,
@@ -780,13 +800,32 @@ export class FareCalculationService {
       });
     }
 
-    const totalFareRaw = baseFare + kmFare + driverAllowance;
+    // Get platform fee from fare matrix
+    const { data: fareMatrix } = await supabaseAdmin
+      .from('fare_matrix')
+      .select('platform_fee')
+      .eq('booking_type', 'outstation')
+      .eq('vehicle_type', vehicleType)
+      .eq('is_active', true)
+      .single();
+
+    const platformFee = parseFloat(fareMatrix?.platform_fee?.toString() || '10');
+
+    // Calculate GST
+    const chargesSubtotal = baseFare + kmFare + driverAllowance;
+    const gstOnCharges = chargesSubtotal * 0.05; // 5% GST
+    const gstOnPlatformFee = platformFee * 0.18; // 18% GST
+
+    const totalFareRaw = baseFare + kmFare + driverAllowance + platformFee + gstOnCharges + gstOnPlatformFee;
     const totalFare = Math.round(totalFareRaw);
 
     console.log('💰 Per-KM fare breakdown:', {
       baseFare,
       kmFare,
       driverAllowance,
+      platformFee,
+      gstOnCharges,
+      gstOnPlatformFee,
       totalFareRaw,
       totalFare,
       withinAllowance
@@ -800,9 +839,9 @@ export class FareCalculationService {
       time_fare: 0,
       surge_charges: 0,
       deadhead_charges: 0,
-      platform_fee: 0,
-      gst_on_charges: 0,
-      gst_on_platform_fee: 0,
+      platform_fee: platformFee,
+      gst_on_charges: gstOnCharges,
+      gst_on_platform_fee: gstOnPlatformFee,
       extra_km_charges: 0,
       driver_allowance: driverAllowance,
       total_fare: totalFare,
