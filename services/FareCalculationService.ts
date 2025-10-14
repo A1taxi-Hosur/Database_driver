@@ -204,6 +204,11 @@ export class FareCalculationService {
     console.log('Vehicle Type:', vehicleType);
     console.log('Actual Distance:', actualDistanceKm, 'km');
     console.log('Actual Duration:', actualDurationMinutes, 'minutes');
+    console.log('Zones parameter received:', {
+      isArray: Array.isArray(zones),
+      length: zones?.length || 0,
+      zones: zones
+    });
 
     // Debug: Check what we're searching for
     console.log('=== FARE MATRIX QUERY DEBUG ===');
@@ -359,11 +364,19 @@ export class FareCalculationService {
     });
 
     // Calculate deadhead charges using proper zone detection
+    console.log('🎯 About to calculate deadhead charges with params:', {
+      dropLat,
+      dropLng,
+      perKmRate,
+      zonesCount: zones?.length || 0
+    });
+
     const deadheadResult = this.calculateDeadheadCharges(dropLat, dropLng, perKmRate, zones);
     const deadheadCharges = Number(deadheadResult.deadheadCharges) || 0;
-    
-    console.log('🎯 Deadhead charges:', {
+
+    console.log('🎯 Deadhead charges result:', {
       deadheadCharges,
+      rawDeadheadCharges: deadheadResult.deadheadCharges,
       type: typeof deadheadCharges,
       isNaN: isNaN(deadheadCharges),
       zoneDetected: deadheadResult.zoneDetected,
@@ -893,6 +906,26 @@ export class FareCalculationService {
     console.log('=== CALCULATING DEADHEAD CHARGES ===');
     console.log('Drop-off coordinates:', dropLat, dropLng);
     console.log('Per km rate:', perKmRate);
+    console.log('Zones received:', zones?.length || 0);
+
+    if (zones && zones.length > 0) {
+      console.log('Zone data received:');
+      zones.forEach((zone, i) => {
+        console.log(`  Zone ${i + 1}:`, {
+          name: zone.name,
+          center_latitude: zone.center_latitude,
+          center_longitude: zone.center_longitude,
+          radius_km: zone.radius_km,
+          types: {
+            center_lat_type: typeof zone.center_latitude,
+            center_lng_type: typeof zone.center_longitude,
+            radius_type: typeof zone.radius_km
+          }
+        });
+      });
+    } else {
+      console.log('⚠️ NO ZONES DATA RECEIVED!');
+    }
 
     // Hosur Bus Stand coordinates (hardcoded)
     const HOSUR_BUS_STAND = {
@@ -908,6 +941,11 @@ export class FareCalculationService {
     const outerZone = zones?.find(zone =>
       zone.name.toLowerCase().includes('outer ring')
     );
+
+    console.log('Zone search results:', {
+      innerZone: innerZone ? `Found: ${innerZone.name}` : 'NOT FOUND',
+      outerZone: outerZone ? `Found: ${outerZone.name}` : 'NOT FOUND'
+    });
 
     if (!innerZone || !outerZone) {
       console.log('⚠️ Inner or Outer ring zone not found in database, no deadhead charges applied');
