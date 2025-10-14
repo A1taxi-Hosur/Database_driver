@@ -635,40 +635,70 @@ export function RideProvider({ children }: RideProviderProps) {
         destination: ride.destination_address
       })
 
-      // Calculate actual GPS distance using Haversine formula
+      // Calculate actual road distance using Google Maps Distance Matrix API
       const pickupLat = parseFloat(ride.pickup_latitude.toString())
       const pickupLng = parseFloat(ride.pickup_longitude.toString())
       const destLat = parseFloat(ride.destination_latitude.toString())
       const destLng = parseFloat(ride.destination_longitude.toString())
 
-      const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-        const R = 6371 // Earth's radius in km
-        const dLat = (lat2 - lat1) * Math.PI / 180
-        const dLon = (lon2 - lon1) * Math.PI / 180
+      console.log('🗺️ Fetching actual road distance from Google Maps...')
+
+      // Import getRouteInfo from maps utils
+      const { getRouteInfo } = await import('../utils/maps')
+
+      let actualDistanceKm = 0
+      let actualDurationMinutes = 0
+
+      try {
+        const routeInfo = await getRouteInfo(
+          { latitude: pickupLat, longitude: pickupLng },
+          { latitude: destLat, longitude: destLng }
+        )
+
+        if (routeInfo) {
+          actualDistanceKm = routeInfo.distanceValue
+          actualDurationMinutes = Math.round(routeInfo.durationValue)
+
+          console.log('✅ Google Maps route info:', {
+            distance: routeInfo.distance,
+            duration: routeInfo.duration,
+            distanceKm: actualDistanceKm.toFixed(2),
+            durationMinutes: actualDurationMinutes
+          })
+        } else {
+          throw new Error('Failed to get route info from Google Maps')
+        }
+      } catch (error) {
+        console.warn('⚠️ Google Maps API failed, falling back to time-based calculation:', error)
+
+        const rideStartTime = ride.created_at ? new Date(ride.created_at).getTime() : Date.now()
+        const currentTime = Date.now()
+        actualDurationMinutes = Math.round((currentTime - rideStartTime) / (1000 * 60))
+
+        const R = 6371
+        const dLat = (destLat - pickupLat) * Math.PI / 180
+        const dLon = (destLng - pickupLng) * Math.PI / 180
         const a =
           Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.cos(pickupLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
           Math.sin(dLon / 2) * Math.sin(dLon / 2)
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        return R * c
+        actualDistanceKm = R * c
+
+        console.log('⚠️ Using fallback calculation:', {
+          actualDistanceKm: actualDistanceKm.toFixed(2),
+          actualDurationMinutes
+        })
       }
 
-      const actualDistanceKm = calculateDistance(pickupLat, pickupLng, destLat, destLng)
-
-      // Calculate actual duration from ride start time to now
-      const rideStartTime = ride.created_at ? new Date(ride.created_at).getTime() : Date.now()
-      const currentTime = Date.now()
-      const actualDurationMinutes = Math.round((currentTime - rideStartTime) / (1000 * 60))
-
-      console.log('🚨 Trip metrics (GPS-calculated):', {
+      console.log('🚨 Trip metrics (Road distance from Google Maps):', {
         actualDistanceKm: actualDistanceKm.toFixed(2),
         actualDurationMinutes,
         pickupLat,
         pickupLng,
         dropLat: destLat,
         dropLng: destLng,
-        rideStartTime: new Date(rideStartTime).toISOString(),
-        currentTime: new Date(currentTime).toISOString()
+        method: 'Google Maps Distance Matrix API'
       })
 
       // Calculate fare using FareCalculationService
