@@ -975,18 +975,14 @@ export class FareCalculationService {
 
     // Calculate distance from drop-off to inner zone center
     const distanceToInnerCenter = calculateDistance(
-      dropLat,
-      dropLng,
-      innerCenterLat,
-      innerCenterLng
+      { latitude: dropLat, longitude: dropLng },
+      { latitude: innerCenterLat, longitude: innerCenterLng }
     );
 
     // Calculate distance from drop-off to outer zone center (same center as inner)
     const distanceToOuterCenter = calculateDistance(
-      dropLat,
-      dropLng,
-      outerCenterLat,
-      outerCenterLng
+      { latitude: dropLat, longitude: dropLng },
+      { latitude: outerCenterLat, longitude: outerCenterLng }
     );
 
     console.log('📏 Distance calculations:', {
@@ -1033,10 +1029,8 @@ export class FareCalculationService {
     });
 
     const distanceToHosurBusStand = calculateDistance(
-      dropLat,
-      dropLng,
-      HOSUR_BUS_STAND.lat,
-      HOSUR_BUS_STAND.lng
+      { latitude: dropLat, longitude: dropLng },
+      { latitude: HOSUR_BUS_STAND.lat, longitude: HOSUR_BUS_STAND.lng }
     );
 
     console.log('Distance to Hosur Bus Stand calculated:', {
