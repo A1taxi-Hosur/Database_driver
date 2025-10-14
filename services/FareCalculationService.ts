@@ -914,16 +914,24 @@ export class FareCalculationService {
       return { deadheadCharges: 0, zoneDetected: 'Unknown', isInnerZone: false };
     }
 
+    // Parse zone data to ensure numeric values
+    const innerRadiusKm = parseFloat(innerZone.radius_km?.toString() || '0');
+    const outerRadiusKm = parseFloat(outerZone.radius_km?.toString() || '0');
+    const innerCenterLat = parseFloat(innerZone.center_latitude?.toString() || '0');
+    const innerCenterLng = parseFloat(innerZone.center_longitude?.toString() || '0');
+    const outerCenterLat = parseFloat(outerZone.center_latitude?.toString() || '0');
+    const outerCenterLng = parseFloat(outerZone.center_longitude?.toString() || '0');
+
     console.log('✅ Zones found:', {
       innerZone: {
         name: innerZone.name,
-        center: [innerZone.center_latitude, innerZone.center_longitude],
-        radius: innerZone.radius_km + 'km'
+        center: [innerCenterLat, innerCenterLng],
+        radius: innerRadiusKm + 'km'
       },
       outerZone: {
         name: outerZone.name,
-        center: [outerZone.center_latitude, outerZone.center_longitude],
-        radius: outerZone.radius_km + 'km'
+        center: [outerCenterLat, outerCenterLng],
+        radius: outerRadiusKm + 'km'
       }
     });
 
@@ -931,20 +939,30 @@ export class FareCalculationService {
     const distanceToInnerCenter = calculateDistance(
       dropLat,
       dropLng,
-      innerZone.center_latitude,
-      innerZone.center_longitude
+      innerCenterLat,
+      innerCenterLng
     );
 
     // Calculate distance from drop-off to outer zone center (same center as inner)
     const distanceToOuterCenter = calculateDistance(
       dropLat,
       dropLng,
-      outerZone.center_latitude,
-      outerZone.center_longitude
+      outerCenterLat,
+      outerCenterLng
     );
 
+    console.log('📏 Distance calculations:', {
+      distanceToInnerCenter: distanceToInnerCenter.toFixed(2) + 'km',
+      innerRadiusKm: innerRadiusKm + 'km',
+      withinInner: distanceToInnerCenter <= innerRadiusKm,
+      distanceToOuterCenter: distanceToOuterCenter.toFixed(2) + 'km',
+      outerRadiusKm: outerRadiusKm + 'km',
+      beyondOuter: distanceToOuterCenter > outerRadiusKm,
+      inDeadheadZone: (distanceToInnerCenter > innerRadiusKm && distanceToOuterCenter <= outerRadiusKm)
+    });
+
     // Check if drop-off is within inner zone (no deadhead charges)
-    if (distanceToInnerCenter <= innerZone.radius_km) {
+    if (distanceToInnerCenter <= innerRadiusKm) {
       console.log('✅ Drop-off is WITHIN inner ring zone - NO deadhead charges');
       return {
         deadheadCharges: 0,
@@ -954,7 +972,7 @@ export class FareCalculationService {
     }
 
     // Check if drop-off is beyond outer zone (no deadhead charges)
-    if (distanceToOuterCenter > outerZone.radius_km) {
+    if (distanceToOuterCenter > outerRadiusKm) {
       console.log('✅ Drop-off is BEYOND outer ring zone - NO deadhead charges');
       return {
         deadheadCharges: 0,
@@ -977,10 +995,11 @@ export class FareCalculationService {
 
     console.log('📍 Drop-off is BETWEEN inner and outer ring zones - applying deadhead charges:', {
       distanceToInnerCenter: distanceToInnerCenter.toFixed(2) + 'km',
-      innerRadius: innerZone.radius_km + 'km',
+      innerRadius: innerRadiusKm + 'km',
       distanceToOuterCenter: distanceToOuterCenter.toFixed(2) + 'km',
-      outerRadius: outerZone.radius_km + 'km',
+      outerRadius: outerRadiusKm + 'km',
       distanceToHosurBusStand: distanceToHosurBusStand.toFixed(2) + 'km',
+      perKmRate: perKmRate,
       deadheadCharges: deadheadCharges.toFixed(2),
       calculation: `(${distanceToHosurBusStand.toFixed(2)} / 2) × ${perKmRate} = ${deadheadCharges.toFixed(2)}`
     });
