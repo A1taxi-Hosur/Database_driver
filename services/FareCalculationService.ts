@@ -434,11 +434,12 @@ export class FareCalculationService {
     console.log('- validGstOnCharges:', validGstOnCharges);
     console.log('- validGstOnPlatformFee:', validGstOnPlatformFee);
 
-    // Calculate total fare
-    const totalFare = validBaseFare + validDistanceFare + validDeadheadCharges + validSurgeCharges + validPlatformFee + validGstOnCharges + validGstOnPlatformFee;
+    // Calculate total fare and round to nearest integer
+    const totalFareRaw = validBaseFare + validDistanceFare + validDeadheadCharges + validSurgeCharges + validPlatformFee + validGstOnCharges + validGstOnPlatformFee;
+    const totalFare = Math.round(totalFareRaw);
 
     console.log('=== FINAL TOTAL FARE ===');
-    console.log('totalFare result:', totalFare, 'type:', typeof totalFare, 'isNaN:', isNaN(totalFare));
+    console.log('totalFare raw:', totalFareRaw, 'rounded:', totalFare, 'type:', typeof totalFare, 'isNaN:', isNaN(totalFare));
     
     console.log('💰 Regular fare breakdown:', {
       baseFare: validBaseFare,
@@ -560,12 +561,14 @@ export class FareCalculationService {
     }
 
     const withinAllowance = extraKmCharges === 0 && extraTimeCharges === 0;
-    const totalFare = baseFare + extraKmCharges + extraTimeCharges;
+    const totalFareRaw = baseFare + extraKmCharges + extraTimeCharges;
+    const totalFare = Math.round(totalFareRaw);
 
     console.log('💰 Rental fare breakdown (actual usage):', {
       baseFare,
       extraKmCharges,
       extraTimeCharges,
+      totalFareRaw,
       totalFare,
       withinAllowance
     });
@@ -676,7 +679,8 @@ export class FareCalculationService {
         const slabFare = parseFloat(selectedSlab.fare?.toString() || '0');
         const extraKm = Math.max(0, actualDistanceKm - selectedSlab.limit);
         const extraKmCharges = extraKm > 0 ? extraKm * parseFloat(slabPackage.extra_km_rate?.toString() || '0') : 0;
-        const totalFare = slabFare + extraKmCharges;
+        const totalFareRaw = slabFare + extraKmCharges;
+        const totalFare = Math.round(totalFareRaw);
 
         console.log('💰 SLAB CALCULATION:', {
           selectedSlab: `${selectedSlab.limit}km`,
@@ -684,6 +688,7 @@ export class FareCalculationService {
           extraKm,
           extraKmRate: slabPackage.extra_km_rate,
           extraKmCharges,
+          totalFareRaw,
           totalFare,
           note: 'No driver allowance for same-day trips ≤150km'
         });
@@ -775,12 +780,14 @@ export class FareCalculationService {
       });
     }
 
-    const totalFare = baseFare + kmFare + driverAllowance;
+    const totalFareRaw = baseFare + kmFare + driverAllowance;
+    const totalFare = Math.round(totalFareRaw);
 
     console.log('💰 Per-KM fare breakdown:', {
       baseFare,
       kmFare,
       driverAllowance,
+      totalFareRaw,
       totalFare,
       withinAllowance
     });
@@ -856,8 +863,14 @@ export class FareCalculationService {
     // Define Hosur city center coordinates
     const cityCenter = { lat: 12.7401984, lng: 77.824 }; // Hosur center
     
-    const pickupToCenter = calculateDistance(pickupLat, pickupLng, cityCenter.lat, cityCenter.lng);
-    const dropToCenter = calculateDistance(dropLat, dropLng, cityCenter.lat, cityCenter.lng);
+    const pickupToCenter = calculateDistance(
+      { latitude: pickupLat, longitude: pickupLng },
+      { latitude: cityCenter.lat, longitude: cityCenter.lng }
+    );
+    const dropToCenter = calculateDistance(
+      { latitude: dropLat, longitude: dropLng },
+      { latitude: cityCenter.lat, longitude: cityCenter.lng }
+    );
     
     const isHosurToAirport = pickupToCenter < dropToCenter;
     const fare = isHosurToAirport ? airportConfig.hosur_to_airport_fare : airportConfig.airport_to_hosur_fare;
@@ -883,9 +896,12 @@ export class FareCalculationService {
       gst_on_platform_fee: 0,
       extra_km_charges: 0,
       driver_allowance: 0,
-      total_fare: fare,
+      total_fare: Math.round(fare),
       details: {
-        actual_distance_km: calculateDistance(pickupLat, pickupLng, dropLat, dropLng),
+        actual_distance_km: calculateDistance(
+          { latitude: pickupLat, longitude: pickupLng },
+          { latitude: dropLat, longitude: dropLng }
+        ),
         actual_duration_minutes: 0,
         per_km_rate: 0,
         direction: direction
