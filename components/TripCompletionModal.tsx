@@ -98,7 +98,8 @@ export default function TripCompletionModal({
               <MapPin size={20} color="#64748B" />
               <Text style={styles.summaryLabel}>Distance:</Text>
               <Text style={styles.summaryValue}>
-                {(tripData.fareBreakdown.details?.actual_distance_km || tripData.distance).toFixed(2)} km (Actual)
+                {(tripData.fareBreakdown.details?.actual_distance_km || tripData.distance).toFixed(2)} km
+                {tripData.booking_type === 'outstation' ? ' (GPS-tracked)' : ' (Actual)'}
               </Text>
             </View>
 
@@ -109,6 +110,15 @@ export default function TripCompletionModal({
                 {tripData.fareBreakdown.details?.actual_duration_minutes || tripData.duration} minutes (Actual)
               </Text>
             </View>
+
+            {tripData.booking_type === 'outstation' && tripData.fareBreakdown.details?.days_calculated && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Trip Duration:</Text>
+                <Text style={styles.summaryValue}>
+                  {tripData.fareBreakdown.details.days_calculated} day{tripData.fareBreakdown.details.days_calculated > 1 ? 's' : ''}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Route Details */}
@@ -230,9 +240,21 @@ export default function TripCompletionModal({
                 {tripData.fareBreakdown.distance_fare > 0 && (
                   <View style={styles.fareItem}>
                     <Text style={styles.fareLabel}>
-                      Distance Charges
-                      {tripData.fareBreakdown.details?.extra_km &&
-                       ` (${tripData.fareBreakdown.details?.extra_km.toFixed(1)}km × ₹${tripData.fareBreakdown.details?.per_km_rate}/km)`}
+                      {tripData.booking_type === 'outstation' ? 'Distance Charges' : 'Distance Charges'}
+                      {tripData.booking_type === 'outstation' && tripData.fareBreakdown.details?.total_km_travelled
+                        ? `\n(${tripData.fareBreakdown.details.total_km_travelled.toFixed(1)}km × ₹${tripData.fareBreakdown.details?.per_km_rate}/km)`
+                        : tripData.fareBreakdown.details?.extra_km
+                          ? ` (${tripData.fareBreakdown.details?.extra_km.toFixed(1)}km × ₹${tripData.fareBreakdown.details?.per_km_rate}/km)`
+                          : ''
+                      }
+                      {tripData.booking_type === 'outstation' && '\n'}
+                      {tripData.booking_type === 'outstation' && (
+                        <Text style={styles.fareSubLabel}>
+                          {tripData.fareBreakdown.details?.within_allowance
+                            ? `Within ${tripData.fareBreakdown.details?.daily_km_limit}km/day limit`
+                            : 'Exceeded daily km limit'}
+                        </Text>
+                      )}
                     </Text>
                     <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.distance_fare)}</Text>
                   </View>
@@ -319,6 +341,15 @@ export default function TripCompletionModal({
                 <View style={styles.fareItem}>
                   <Text style={styles.fareLabel}>
                     Trip Summary: {tripData.fareBreakdown.details?.actual_distance_km?.toFixed(1) || tripData.distance.toFixed(1)}km in {tripData.fareBreakdown.details?.actual_duration_minutes || tripData.duration}min
+                    {tripData.booking_type === 'outstation' && tripData.fareBreakdown.details?.days_calculated && (
+                      `\n${tripData.fareBreakdown.details.days_calculated} day${tripData.fareBreakdown.details.days_calculated > 1 ? 's' : ''} trip`
+                    )}
+                    {tripData.booking_type === 'outstation' && '\n'}
+                    {tripData.booking_type === 'outstation' && (
+                      <Text style={styles.fareSubLabel}>
+                        GPS-tracked actual distance
+                      </Text>
+                    )}
                   </Text>
                   <Text style={styles.fareValue}>
                     {tripData.fareBreakdown.details?.within_allowance !== undefined

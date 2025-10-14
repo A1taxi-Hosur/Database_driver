@@ -595,7 +595,7 @@ export class FareCalculationService {
   ): Promise<FareBreakdown> {
     console.log('=== CALCULATING OUTSTATION FARE ===');
     console.log('Vehicle Type:', vehicleType);
-    console.log('Actual Distance (one-way):', actualDistanceKm, 'km');
+    console.log('Actual GPS-tracked Distance:', actualDistanceKm, 'km');
 
     const { data: outstationFares, error } = await supabaseAdmin
       .from('outstation_fares')
@@ -622,7 +622,7 @@ export class FareCalculationService {
       driver_allowance_per_day: driverAllowancePerDay,
       daily_km_limit: dailyKmLimit
     });
-    // Calculate number of days (24-hour periods from start time)
+
     const startTime = scheduledTime ? new Date(scheduledTime) : new Date();
     const endTime = new Date();
     const durationHours = Math.abs(endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
@@ -635,18 +635,18 @@ export class FareCalculationService {
       numberOfDays,
     });
 
-    // Calculate round trip distance (actualDistanceKm is one-way)
-    const totalKmTravelled = actualDistanceKm * 2;
+    const totalKmTravelled = actualDistanceKm;
     const totalKmAllowance = dailyKmLimit * numberOfDays;
     const driverAllowance = numberOfDays * driverAllowancePerDay;
 
     console.log('🚗 Outstation distance calculation:', {
-      oneWayDistance: actualDistanceKm,
+      actualGPSDistance: actualDistanceKm,
       totalKmTravelled,
       dailyKmLimit,
       numberOfDays,
       totalKmAllowance,
-      driverAllowance
+      driverAllowance,
+      note: 'Using actual GPS-tracked distance (includes full trip path)'
     });
 
     let kmFare = 0;
