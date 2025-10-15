@@ -28,6 +28,7 @@ import { supabaseAdmin } from '../../utils/supabase';
 import { openGoogleMapsNavigation } from '../../utils/maps';
 import OTPModal from '../../components/OTPModal';
 import TripCompletionModal from '../../components/TripCompletionModal';
+import { FareCalculationService } from '../../services/FareCalculationService';
 import { TripLocationTracker } from '../../services/TripLocationTracker';
 
 type ScheduledBooking = {
