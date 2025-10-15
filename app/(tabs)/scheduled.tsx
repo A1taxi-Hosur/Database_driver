@@ -523,7 +523,7 @@ export default function ScheduledScreen() {
       const { data: driverData } = await supabaseAdmin
         .from('drivers')
         .select('*, vehicles(*)')
-        .eq('id', currentBooking.driver_id!)
+        .eq('id', currentBooking.assigned_driver_id!)
         .single();
 
       // Store trip completion with fare breakdown in database
@@ -533,7 +533,7 @@ export default function ScheduledScreen() {
         actualDistanceKm,
         actualDurationMinutes,
         {
-          driver_id: currentBooking.driver_id!,
+          driver_id: currentBooking.assigned_driver_id!,
           customer_id: currentBooking.customer_id,
           driver_name: driverData?.full_name || 'Driver',
           driver_phone: driverData?.phone_number,
