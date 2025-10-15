@@ -1481,6 +1481,34 @@ export class FareCalculationService {
       fare
     });
 
+    // Get platform fee from fare matrix
+    const { data: fareMatrix } = await supabaseAdmin
+      .from('fare_matrix')
+      .select('platform_fee')
+      .eq('booking_type', 'airport')
+      .eq('vehicle_type', vehicleType)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    const platformFee = parseFloat(fareMatrix?.platform_fee?.toString() || '20');
+
+    // Calculate GST
+    const gstOnCharges = fare * 0.05; // 5% GST on base fare
+    const gstOnPlatformFee = platformFee * 0.18; // 18% GST on platform fee
+
+    const totalFareRaw = fare + platformFee + gstOnCharges + gstOnPlatformFee;
+    const totalFare = Math.round(totalFareRaw);
+
+    console.log('💰 Airport fare breakdown:', {
+      baseFare: fare,
+      direction,
+      platformFee,
+      gstOnCharges,
+      gstOnPlatformFee,
+      totalFareRaw,
+      totalFare
+    });
+
     return {
       booking_type: 'airport',
       vehicle_type: vehicleType,
@@ -1489,12 +1517,12 @@ export class FareCalculationService {
       time_fare: 0,
       surge_charges: 0,
       deadhead_charges: 0,
-      platform_fee: 0,
-      gst_on_charges: 0,
-      gst_on_platform_fee: 0,
+      platform_fee: platformFee,
+      gst_on_charges: gstOnCharges,
+      gst_on_platform_fee: gstOnPlatformFee,
       extra_km_charges: 0,
       driver_allowance: 0,
-      total_fare: Math.round(fare),
+      total_fare: totalFare,
       details: {
         actual_distance_km: calculateDistance(
           { latitude: pickupLat, longitude: pickupLng },
