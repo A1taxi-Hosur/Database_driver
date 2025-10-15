@@ -350,18 +350,34 @@ export default function ScheduledScreen() {
           currentBooking.id,
           'scheduled'
         );
-        actualDistanceKm = gpsDistance.distanceKm;
+        const gpsDistanceRaw = gpsDistance.distanceKm;
         gpsPointsUsed = gpsDistance.pointsUsed;
 
-        console.log('📍 GPS distance result:', {
-          distanceKm: actualDistanceKm,
+        console.log('📍 GPS distance result (raw):', {
+          distanceKm: gpsDistanceRaw,
           pointsUsed: gpsPointsUsed
         });
 
         // If GPS returned 0 or very low distance, use Google Maps fallback
-        if (actualDistanceKm < 1 && gpsPointsUsed < 3) {
+        if (gpsDistanceRaw < 1 && gpsPointsUsed < 3) {
           console.warn('⚠️ GPS tracking insufficient (distance < 1km or < 3 points), using Google Maps API...');
           throw new Error('Insufficient GPS data');
+        }
+
+        // For outstation trips, GPS tracks one-way, so multiply by 2 for round trip
+        if (currentBooking.booking_type === 'outstation') {
+          actualDistanceKm = gpsDistanceRaw * 2;
+          console.log('✅ GPS-tracked distance for outstation (doubled):', {
+            oneWayDistance: gpsDistanceRaw.toFixed(2),
+            roundTripDistance: actualDistanceKm.toFixed(2),
+            note: 'GPS distance × 2 for round trip'
+          });
+        } else {
+          actualDistanceKm = gpsDistanceRaw;
+          console.log('✅ GPS-tracked distance for rental:', {
+            distanceKm: actualDistanceKm.toFixed(2),
+            note: 'GPS distance (not doubled)'
+          });
         }
 
         // Calculate duration from scheduled time or booking creation
@@ -375,6 +391,7 @@ export default function ScheduledScreen() {
           distanceKm: actualDistanceKm.toFixed(2),
           durationMinutes: actualDurationMinutes,
           gpsPointsUsed,
+          bookingType: currentBooking.booking_type,
           method: 'Real GPS tracking'
         });
       } catch (error) {
@@ -398,19 +415,21 @@ export default function ScheduledScreen() {
           if (routeData && routeData.distance > 0) {
             const oneWayDistance = routeData.distance;
 
-            // Only double for outstation trips >= 300km (per-km pricing)
-            // Slab pricing (< 300km) already accounts for round trip
-            const shouldDouble = currentBooking.booking_type === 'outstation' && (oneWayDistance * 2) >= 300;
-            actualDistanceKm = shouldDouble ? oneWayDistance * 2 : oneWayDistance;
-
-            console.log('✅ Using Google Maps distance:', {
-              oneWayDistance: oneWayDistance.toFixed(2),
-              finalDistance: actualDistanceKm.toFixed(2),
-              doubled: shouldDouble,
-              note: shouldDouble
-                ? 'Distance doubled for round trip (>= 300km uses per-km pricing)'
-                : 'Distance NOT doubled (< 300km uses slab pricing which includes round trip)'
-            });
+            // For outstation trips, always double for round trip (up and down)
+            if (currentBooking.booking_type === 'outstation') {
+              actualDistanceKm = oneWayDistance * 2;
+              console.log('✅ Using Google Maps distance (outstation):', {
+                oneWayDistance: oneWayDistance.toFixed(2),
+                roundTripDistance: actualDistanceKm.toFixed(2),
+                note: 'Distance × 2 for round trip (outstation)'
+              });
+            } else {
+              actualDistanceKm = oneWayDistance;
+              console.log('✅ Using Google Maps distance (rental):', {
+                distanceKm: actualDistanceKm.toFixed(2),
+                note: 'Distance not doubled (rental)'
+              });
+            }
           } else {
             throw new Error('Google Maps returned invalid distance');
           }
@@ -433,19 +452,21 @@ export default function ScheduledScreen() {
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const oneWayDistance = R * c * 1.3; // Apply 1.3x multiplier for realistic road distance
 
-          // Only double for outstation trips >= 300km (per-km pricing)
-          // Slab pricing (< 300km) already accounts for round trip
-          const shouldDouble = currentBooking.booking_type === 'outstation' && (oneWayDistance * 2) >= 300;
-          actualDistanceKm = shouldDouble ? oneWayDistance * 2 : oneWayDistance;
-
-          console.log('⚠️ Using straight-line distance:', {
-            oneWayDistance: oneWayDistance.toFixed(2),
-            finalDistance: actualDistanceKm.toFixed(2),
-            doubled: shouldDouble,
-            note: shouldDouble
-              ? 'Straight-line × 1.3 (roads) × 2 (round trip for >= 300km)'
-              : 'Straight-line × 1.3 (roads), NOT doubled (< 300km slab includes round trip)'
-          });
+          // For outstation trips, always double for round trip
+          if (currentBooking.booking_type === 'outstation') {
+            actualDistanceKm = oneWayDistance * 2;
+            console.log('⚠️ Using straight-line distance (outstation):', {
+              oneWayDistance: oneWayDistance.toFixed(2),
+              roundTripDistance: actualDistanceKm.toFixed(2),
+              note: 'Straight-line × 1.3 (roads) × 2 (round trip)'
+            });
+          } else {
+            actualDistanceKm = oneWayDistance;
+            console.log('⚠️ Using straight-line distance (rental):', {
+              distanceKm: actualDistanceKm.toFixed(2),
+              note: 'Straight-line × 1.3 (roads), not doubled'
+            });
+          }
         }
 
         const startTime = currentBooking.scheduled_time
