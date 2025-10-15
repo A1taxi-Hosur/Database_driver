@@ -935,6 +935,12 @@ async function calculateOutstationFare(
     scheduledTime
   });
 
+  // Safety check: Ensure distance is valid
+  if (actualDistanceKm <= 0) {
+    console.error('❌ [OUTSTATION-COMPLETION] Invalid distance:', actualDistanceKm);
+    throw new Error('Invalid GPS distance: ' + actualDistanceKm + 'km. GPS tracking may have failed.');
+  }
+
   // Calculate number of days
   const startTime = scheduledTime ? new Date(scheduledTime) : new Date();
   const endTime = new Date();
@@ -974,51 +980,68 @@ async function calculateOutstationFare(
       .select('*')
       .eq('vehicle_type', vehicleType)
       .eq('is_active', true)
-      .lte('min_km', actualDistanceKm)
-      .gte('max_km', actualDistanceKm)
       .order('created_at', { ascending: false })
       .limit(1);
 
     if (slabError || !slabPackages || slabPackages.length === 0) {
       console.error('❌ [OUTSTATION-COMPLETION] Slab package not found:', slabError);
-      throw new Error('Outstation slab package not found for distance: ' + actualDistanceKm + 'km');
+      throw new Error('Outstation slab package not found for vehicle: ' + vehicleType);
     }
 
     const slabPackage = slabPackages[0];
-    console.log('💰 [OUTSTATION-COMPLETION] Found slab package:', {
-      min_km: slabPackage.min_km,
-      max_km: slabPackage.max_km,
-      package_fare: slabPackage.package_fare,
-      km_included: slabPackage.km_included,
-      per_km_after_limit: slabPackage.per_km_after_limit,
-      driver_allowance_per_day: slabPackage.driver_allowance_per_day
+    console.log('💰 [OUTSTATION-COMPLETION] Found slab package:', slabPackage);
+
+    // Determine which slab to use based on distance
+    const slabDistances = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150];
+    let selectedSlab = null;
+    let slabKm = 0;
+
+    for (const km of slabDistances) {
+      const slabKey = `slab_${km}km`;
+      if (slabPackage[slabKey] && actualDistanceKm <= km) {
+        selectedSlab = parseFloat(slabPackage[slabKey].toString());
+        slabKm = km;
+        break;
+      }
+    }
+
+    // If distance exceeds all slabs, use the highest slab + extra km charges
+    if (!selectedSlab) {
+      const highestSlabKey = 'slab_150km';
+      selectedSlab = parseFloat(slabPackage[highestSlabKey]?.toString() || '0');
+      slabKm = 150;
+    }
+
+    console.log('💰 [OUTSTATION-COMPLETION] Selected slab:', {
+      actualDistanceKm: actualDistanceKm.toFixed(2),
+      selectedSlabKm: slabKm,
+      slabFare: selectedSlab
     });
 
-    baseFare = parseFloat(slabPackage.package_fare?.toString() || '0');
-    const kmIncluded = parseFloat(slabPackage.km_included?.toString() || '0');
-    const perKmAfterLimit = parseFloat(slabPackage.per_km_after_limit?.toString() || '0');
+    baseFare = selectedSlab;
+    const extraKmRate = parseFloat(slabPackage.extra_km_rate?.toString() || '12');
     driverAllowance = numberOfDays * parseFloat(slabPackage.driver_allowance_per_day?.toString() || '300');
 
-    // Calculate extra km charges if distance exceeds included km
-    if (actualDistanceKm > kmIncluded) {
-      const extraKm = actualDistanceKm - kmIncluded;
-      extraKmCharges = extraKm * perKmAfterLimit;
+    // Calculate extra km charges if distance exceeds slab
+    if (actualDistanceKm > slabKm) {
+      const extraKm = actualDistanceKm - slabKm;
+      extraKmCharges = extraKm * extraKmRate;
       console.log('💰 [OUTSTATION-COMPLETION] Extra km calculation:', {
-        kmIncluded,
+        slabKm,
         actualDistanceKm: actualDistanceKm.toFixed(2),
         extraKm: extraKm.toFixed(2),
-        perKmAfterLimit,
+        extraKmRate,
         extraKmCharges: extraKmCharges.toFixed(2)
       });
     }
 
     distanceFare = extraKmCharges;
     slabDetails = {
-      slab_range: `${slabPackage.min_km}-${slabPackage.max_km}km`,
+      slab_range: `Up to ${slabKm}km`,
       package_fare: baseFare,
-      km_included: kmIncluded,
-      extra_km: Math.max(0, actualDistanceKm - kmIncluded),
-      per_km_after_limit: perKmAfterLimit
+      km_included: slabKm,
+      extra_km: Math.max(0, actualDistanceKm - slabKm),
+      per_km_after_limit: extraKmRate
     };
 
   } else {
