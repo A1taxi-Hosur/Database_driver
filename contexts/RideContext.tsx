@@ -668,41 +668,85 @@ export function RideProvider({ children }: RideProviderProps) {
       try {
         // Calculate distance from GPS breadcrumbs
         const gpsDistance = await TripLocationTracker.calculateTripDistance(rideId, 'regular')
-        actualDistanceKm = gpsDistance.distanceKm
+        const gpsDistanceRaw = gpsDistance.distanceKm
         gpsPointsUsed = gpsDistance.pointsUsed
+
+        console.log('📍 GPS distance result (raw):', {
+          distanceKm: gpsDistanceRaw,
+          pointsUsed: gpsPointsUsed
+        })
+
+        // If GPS returned 0 or very low distance, use Google Maps fallback
+        if (gpsDistanceRaw < 0.5 && gpsPointsUsed < 3) {
+          console.warn('⚠️ GPS tracking insufficient (distance < 0.5km or < 3 points), using Google Maps API...')
+          throw new Error('Insufficient GPS data')
+        }
+
+        actualDistanceKm = gpsDistanceRaw
 
         // Calculate duration from ride start time
         const rideStartTime = ride.created_at ? new Date(ride.created_at).getTime() : Date.now()
         const currentTime = Date.now()
         actualDurationMinutes = Math.round((currentTime - rideStartTime) / (1000 * 60))
 
-        console.log('✅ GPS-tracked distance:', {
+        console.log('✅ GPS-tracked distance for regular ride:', {
           distanceKm: actualDistanceKm.toFixed(2),
           durationMinutes: actualDurationMinutes,
           gpsPointsUsed,
           method: 'Real GPS tracking'
         })
       } catch (error) {
-        console.warn('⚠️ GPS distance calculation failed, falling back to straight-line distance:', error)
+        console.warn('⚠️ GPS distance calculation failed, using Google Maps API fallback:', error)
 
-        const rideStartTime = ride.created_at ? new Date(ride.created_at).getTime() : Date.now()
-        const currentTime = Date.now()
-        actualDurationMinutes = Math.round((currentTime - rideStartTime) / (1000 * 60))
+        // Fallback to Google Maps Directions API
+        try {
+          const { googleMapsService } = await import('../services/googleMapsService')
 
-        const R = 6371
-        const dLat = (destLat - pickupLat) * Math.PI / 180
-        const dLon = (destLng - pickupLng) * Math.PI / 180
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(pickupLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
-          Math.sin(dLon / 2) * Math.sin(dLon / 2)
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        actualDistanceKm = R * c
+          const routeData = await googleMapsService.getDirections(
+            {
+              latitude: pickupLat,
+              longitude: pickupLng
+            },
+            {
+              latitude: destLat,
+              longitude: destLng
+            }
+          )
 
-        console.log('⚠️ Using fallback straight-line calculation:', {
-          actualDistanceKm: actualDistanceKm.toFixed(2),
-          actualDurationMinutes
-        })
+          if (routeData && routeData.distance > 0) {
+            actualDistanceKm = routeData.distance
+            actualDurationMinutes = Math.round(routeData.duration / 60)
+
+            console.log('✅ Google Maps fallback distance:', {
+              distanceKm: actualDistanceKm.toFixed(2),
+              durationMinutes: actualDurationMinutes,
+              method: 'Google Maps Directions API'
+            })
+          } else {
+            throw new Error('Google Maps API returned no route')
+          }
+        } catch (googleError) {
+          console.warn('⚠️ Google Maps fallback also failed, using straight-line distance:', googleError)
+
+          const rideStartTime = ride.created_at ? new Date(ride.created_at).getTime() : Date.now()
+          const currentTime = Date.now()
+          actualDurationMinutes = Math.round((currentTime - rideStartTime) / (1000 * 60))
+
+          const R = 6371
+          const dLat = (destLat - pickupLat) * Math.PI / 180
+          const dLon = (destLng - pickupLng) * Math.PI / 180
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(pickupLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+          actualDistanceKm = R * c
+
+          console.log('⚠️ Using fallback straight-line calculation:', {
+            actualDistanceKm: actualDistanceKm.toFixed(2),
+            actualDurationMinutes
+          })
+        }
       }
 
       console.log('🚨 Trip metrics (Real GPS-tracked distance):', {
