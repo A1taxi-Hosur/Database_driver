@@ -986,19 +986,16 @@ async function calculateRentalFare(
     withinAllowance = false;
   }
 
-  // Fetch platform fee for rental bookings
-  const { data: platformFees, error: platformFeeError } = await supabaseAdmin
-    .from('platform_fees')
-    .select('*')
+  // Fetch platform fee from fare_matrix for rental bookings
+  const { data: fareMatrix } = await supabaseAdmin
+    .from('fare_matrix')
+    .select('platform_fee')
     .eq('booking_type', 'rental')
+    .eq('vehicle_type', vehicleType)
     .eq('is_active', true)
-    .limit(1);
+    .maybeSingle();
 
-  if (platformFeeError) {
-    console.error('Error fetching platform fee:', platformFeeError);
-  }
-
-  const platformFee = platformFees && platformFees.length > 0 ? Number(platformFees[0].fee_amount) : 0;
+  const platformFee = parseFloat(fareMatrix?.platform_fee?.toString() || '20');
 
   // Calculate total package charges (base fare + extra km charges)
   const packageCharges = baseFare + extraKmCharges;
@@ -1303,19 +1300,16 @@ async function calculateAirportFare(
   const isHosurToAirport = pickupToCenter < dropToCenter;
   const packageFare = isHosurToAirport ? airportConfig.hosur_to_airport_fare : airportConfig.airport_to_hosur_fare;
 
-  // Fetch platform fee for airport bookings
-  const { data: platformFees, error: platformFeeError } = await supabaseAdmin
-    .from('platform_fees')
-    .select('*')
+  // Fetch platform fee from fare_matrix for airport bookings
+  const { data: fareMatrix } = await supabaseAdmin
+    .from('fare_matrix')
+    .select('platform_fee')
     .eq('booking_type', 'airport')
+    .eq('vehicle_type', vehicleType)
     .eq('is_active', true)
-    .limit(1);
+    .maybeSingle();
 
-  if (platformFeeError) {
-    console.error('Error fetching platform fee:', platformFeeError);
-  }
-
-  const platformFee = platformFees && platformFees.length > 0 ? Number(platformFees[0].fee_amount) : 0;
+  const platformFee = parseFloat(fareMatrix?.platform_fee?.toString() || '20');
 
   // Calculate charges
   const gstOnPackage = Number(packageFare) * 0.05; // 5% GST on package value
