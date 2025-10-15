@@ -333,8 +333,14 @@ export class FareCalculationService {
       }
 
       if (completionError) {
-        console.error('Error storing trip completion:', completionError);
-        return { success: false, error: 'Failed to store trip completion' };
+        console.error('❌ Error storing trip completion:', completionError);
+        console.error('❌ Error details:', JSON.stringify(completionError, null, 2));
+        console.error('❌ Error message:', completionError.message);
+        console.error('❌ Error code:', completionError.code);
+        console.error('❌ Error hint:', completionError.hint);
+        console.error('❌ Booking type:', ride.booking_type);
+        console.error('❌ Driver details provided:', !!driverDetails);
+        return { success: false, error: 'Failed to store trip completion: ' + completionError.message };
       }
 
       // Update ride with final fare
