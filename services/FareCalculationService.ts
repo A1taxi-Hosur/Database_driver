@@ -72,7 +72,8 @@ export class FareCalculationService {
       console.log('Ride details:', {
         booking_type: ride.booking_type,
         vehicle_type: ride.vehicle_type,
-        scheduled_time: ride.scheduled_time
+        scheduled_time: ride.scheduled_time,
+        trip_type: ride.trip_type
       });
 
       // Get zones from database
@@ -122,7 +123,8 @@ export class FareCalculationService {
             ride.vehicle_type,
             actualDistanceKm,
             actualDurationMinutes,
-            ride.scheduled_time
+            ride.scheduled_time,
+            ride.trip_type || 'round_trip'
           );
           break;
 
@@ -607,10 +609,12 @@ export class FareCalculationService {
     vehicleType: string,
     actualDistanceKm: number,
     actualDurationMinutes: number,
-    scheduledTime: string | null
+    scheduledTime: string | null,
+    tripType: 'one_way' | 'round_trip'
   ): Promise<FareBreakdown> {
     console.log('=== CALCULATING OUTSTATION FARE ===');
     console.log('Vehicle Type:', vehicleType);
+    console.log('Trip Type:', tripType);
     console.log('Actual GPS-tracked Distance:', actualDistanceKm, 'km');
 
     const startTime = scheduledTime ? new Date(scheduledTime) : new Date();
@@ -623,8 +627,98 @@ export class FareCalculationService {
       endTime: endTime.toISOString(),
       durationHours,
       numberOfDays,
+      tripType
     });
 
+    // ONE-WAY TRIP LOGIC
+    if (tripType === 'one_way') {
+      console.log('🛣️ ONE-WAY TRIP CALCULATION');
+
+      const { data: outstationFares, error } = await supabaseAdmin
+        .from('outstation_fares')
+        .select('*')
+        .eq('vehicle_type', vehicleType)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error || !outstationFares || outstationFares.length === 0) {
+        console.error('Error fetching outstation fare:', error);
+        throw new Error('Outstation fare configuration not found');
+      }
+
+      const outstationConfig = outstationFares[0];
+      const baseFare = outstationConfig.base_fare;
+      const perKmRate = outstationConfig.per_km_rate;
+
+      console.log('✅ Outstation config loaded:', {
+        base_fare: baseFare,
+        per_km_rate: perKmRate
+      });
+
+      // ONE WAY: base_fare + (km_travelled × price_per_km × 2)
+      const kmFare = actualDistanceKm * perKmRate * 2;
+
+      // Get platform fee from fare matrix
+      const { data: fareMatrix } = await supabaseAdmin
+        .from('fare_matrix')
+        .select('platform_fee')
+        .eq('booking_type', 'outstation')
+        .eq('vehicle_type', vehicleType)
+        .eq('is_active', true)
+        .single();
+
+      const platformFee = parseFloat(fareMatrix?.platform_fee?.toString() || '10');
+
+      // Calculate GST
+      const chargesSubtotal = baseFare + kmFare;
+      const gstOnCharges = chargesSubtotal * 0.05; // 5% GST
+      const gstOnPlatformFee = platformFee * 0.18; // 18% GST
+
+      const totalFareRaw = baseFare + kmFare + platformFee + gstOnCharges + gstOnPlatformFee;
+      const totalFare = Math.round(totalFareRaw);
+
+      console.log('💰 ONE-WAY CALCULATION:', {
+        baseFare,
+        actualDistanceKm,
+        perKmRate,
+        kmFare,
+        calculation: `${baseFare} + (${actualDistanceKm} × ${perKmRate} × 2) = ${baseFare} + ${kmFare}`,
+        platformFee,
+        gstOnCharges,
+        gstOnPlatformFee,
+        totalFareRaw,
+        totalFare
+      });
+
+      return {
+        booking_type: 'outstation',
+        vehicle_type: vehicleType,
+        base_fare: baseFare,
+        distance_fare: kmFare,
+        time_fare: 0,
+        surge_charges: 0,
+        deadhead_charges: 0,
+        platform_fee: platformFee,
+        gst_on_charges: gstOnCharges,
+        gst_on_platform_fee: gstOnPlatformFee,
+        extra_km_charges: 0,
+        driver_allowance: 0,
+        total_fare: totalFare,
+        details: {
+          actual_distance_km: actualDistanceKm,
+          actual_duration_minutes: actualDurationMinutes,
+          per_km_rate: perKmRate,
+          days_calculated: numberOfDays,
+          within_allowance: true,
+          total_km_travelled: actualDistanceKm,
+          direction: 'one_way'
+        }
+      };
+    }
+
+    // ROUND TRIP LOGIC
+    console.log('🔄 ROUND TRIP CALCULATION');
     const isSameDayTrip = numberOfDays === 1;
     const useSlab = isSameDayTrip && actualDistanceKm <= 150;
 
@@ -768,11 +862,12 @@ export class FareCalculationService {
       daily_km_limit: dailyKmLimit
     });
 
+    // ROUND TRIP: Total KM travelled is the actual distance
     const totalKmTravelled = actualDistanceKm;
     const totalKmAllowance = dailyKmLimit * numberOfDays;
     const driverAllowance = numberOfDays * driverAllowancePerDay;
 
-    console.log('🚗 Per-KM distance calculation:', {
+    console.log('🚗 Round Trip distance calculation:', {
       actualGPSDistance: actualDistanceKm,
       totalKmTravelled,
       dailyKmLimit,
@@ -785,18 +880,25 @@ export class FareCalculationService {
     let withinAllowance = true;
 
     if (totalKmTravelled <= totalKmAllowance) {
+      // Within allowance: dailyKmLimit × numberOfDays × perKmRate + driverAllowance × numberOfDays
       kmFare = dailyKmLimit * numberOfDays * perKmRate;
       withinAllowance = true;
       console.log('✅ Within daily allowance:', {
         kmFare,
-        calculation: `${dailyKmLimit} × ${numberOfDays} × ${perKmRate} = ${kmFare}`
+        calculation: `${dailyKmLimit} × ${numberOfDays} × ${perKmRate} = ${kmFare}`,
+        driverAllowance,
+        allowanceCalculation: `${driverAllowancePerDay} × ${numberOfDays} = ${driverAllowance}`
       });
     } else {
+      // Exceeds allowance: totalKmTravelled × perKmRate + driverAllowance × numberOfDays
       kmFare = totalKmTravelled * perKmRate;
       withinAllowance = false;
       console.log('⚠️ Exceeds daily allowance:', {
         kmFare,
-        calculation: `${totalKmTravelled} × ${perKmRate} = ${kmFare}`
+        calculation: `${totalKmTravelled} × ${perKmRate} = ${kmFare}`,
+        driverAllowance,
+        allowanceCalculation: `${driverAllowancePerDay} × ${numberOfDays} = ${driverAllowance}`,
+        extraKm: totalKmTravelled - totalKmAllowance
       });
     }
 
@@ -819,7 +921,7 @@ export class FareCalculationService {
     const totalFareRaw = baseFare + kmFare + driverAllowance + platformFee + gstOnCharges + gstOnPlatformFee;
     const totalFare = Math.round(totalFareRaw);
 
-    console.log('💰 Per-KM fare breakdown:', {
+    console.log('💰 ROUND TRIP fare breakdown:', {
       baseFare,
       kmFare,
       driverAllowance,
@@ -828,7 +930,8 @@ export class FareCalculationService {
       gstOnPlatformFee,
       totalFareRaw,
       totalFare,
-      withinAllowance
+      withinAllowance,
+      calculation: `${baseFare} + ${kmFare} + ${driverAllowance} + ${platformFee} + ${gstOnCharges} + ${gstOnPlatformFee} = ${totalFare}`
     });
 
     return {

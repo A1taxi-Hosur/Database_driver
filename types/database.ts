@@ -121,6 +121,7 @@ export interface Database {
           pickup_otp: string | null
           drop_otp: string | null
           special_instructions: string | null
+          trip_type: 'one_way' | 'round_trip'
           created_at: string
           updated_at: string
           scheduled_time: string | null
@@ -154,6 +155,7 @@ export interface Database {
           pickup_otp?: string | null
           drop_otp?: string | null
           special_instructions?: string | null
+          trip_type?: 'one_way' | 'round_trip'
           created_at?: string
           updated_at?: string
           scheduled_time?: string | null
@@ -187,6 +189,7 @@ export interface Database {
           pickup_otp?: string | null
           drop_otp?: string | null
           special_instructions?: string | null
+          trip_type?: 'one_way' | 'round_trip'
           created_at?: string
           updated_at?: string
           scheduled_time?: string | null
