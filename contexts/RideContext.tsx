@@ -670,7 +670,7 @@ export function RideProvider({ children }: RideProviderProps) {
       if (driverDetails.vehicle_id) {
         const { data: vehicle, error: vehicleError } = await supabaseAdmin
           .from('vehicles')
-          .select('id, make, model, color, license_plate')
+          .select('id, make, model, color, registration_number')
           .eq('id', driverDetails.vehicle_id)
           .maybeSingle()
 
@@ -918,7 +918,7 @@ export function RideProvider({ children }: RideProviderProps) {
             vehicle_make: vehicleData?.make || '',
             vehicle_model: vehicleData?.model || '',
             vehicle_color: vehicleData?.color || '',
-            vehicle_license_plate: vehicleData?.license_plate || ''
+            vehicle_license_plate: vehicleData?.registration_number || ''
           })
           .select()
 
