@@ -396,13 +396,20 @@ export default function ScheduledScreen() {
           );
 
           if (routeData && routeData.distance > 0) {
-            // For outstation trips, multiply by 2 for round trip (up and down)
             const oneWayDistance = routeData.distance;
-            actualDistanceKm = oneWayDistance * 2;
+
+            // Only double for outstation trips >= 300km (per-km pricing)
+            // Slab pricing (< 300km) already accounts for round trip
+            const shouldDouble = currentBooking.booking_type === 'outstation' && (oneWayDistance * 2) >= 300;
+            actualDistanceKm = shouldDouble ? oneWayDistance * 2 : oneWayDistance;
+
             console.log('✅ Using Google Maps distance:', {
               oneWayDistance: oneWayDistance.toFixed(2),
-              roundTripDistance: actualDistanceKm.toFixed(2),
-              note: 'Distance doubled for round trip (up and down)'
+              finalDistance: actualDistanceKm.toFixed(2),
+              doubled: shouldDouble,
+              note: shouldDouble
+                ? 'Distance doubled for round trip (>= 300km uses per-km pricing)'
+                : 'Distance NOT doubled (< 300km uses slab pricing which includes round trip)'
             });
           } else {
             throw new Error('Google Maps returned invalid distance');
@@ -410,7 +417,7 @@ export default function ScheduledScreen() {
         } catch (googleMapsError) {
           console.warn('⚠️ Google Maps fallback failed, using straight-line distance:', googleMapsError);
 
-          // Last resort: straight-line distance with 1.3x multiplier for road routing, then x2 for round trip
+          // Last resort: straight-line distance with 1.3x multiplier for road routing
           const pickupLat = currentBooking.pickup_latitude;
           const pickupLng = currentBooking.pickup_longitude;
           const destLat = currentBooking.destination_latitude;
@@ -425,12 +432,19 @@ export default function ScheduledScreen() {
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const oneWayDistance = R * c * 1.3; // Apply 1.3x multiplier for realistic road distance
-          actualDistanceKm = oneWayDistance * 2; // Double for round trip
+
+          // Only double for outstation trips >= 300km (per-km pricing)
+          // Slab pricing (< 300km) already accounts for round trip
+          const shouldDouble = currentBooking.booking_type === 'outstation' && (oneWayDistance * 2) >= 300;
+          actualDistanceKm = shouldDouble ? oneWayDistance * 2 : oneWayDistance;
 
           console.log('⚠️ Using straight-line distance:', {
             oneWayDistance: oneWayDistance.toFixed(2),
-            roundTripDistance: actualDistanceKm.toFixed(2),
-            note: 'Straight-line × 1.3 (roads) × 2 (round trip)'
+            finalDistance: actualDistanceKm.toFixed(2),
+            doubled: shouldDouble,
+            note: shouldDouble
+              ? 'Straight-line × 1.3 (roads) × 2 (round trip for >= 300km)'
+              : 'Straight-line × 1.3 (roads), NOT doubled (< 300km slab includes round trip)'
           });
         }
 
@@ -1068,7 +1082,7 @@ async function calculateOutstationFare(
 
     baseFare = selectedSlab;
     const extraKmRate = parseFloat(slabPackage.extra_km_rate?.toString() || '12');
-    driverAllowance = numberOfDays * parseFloat(slabPackage.driver_allowance_per_day?.toString() || '300');
+    // NO driver allowance for trips < 300km (slab pricing already includes round trip)
 
     // Calculate extra km charges if distance exceeds slab
     if (actualDistanceKm > slabKm) {

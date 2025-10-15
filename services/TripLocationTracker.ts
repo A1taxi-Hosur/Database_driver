@@ -183,6 +183,22 @@ class TripLocationTrackerService {
         return { distanceKm: 0, pointsUsed: 0 };
       }
 
+      // Check if driver actually moved by checking first and last point distance
+      const firstPoint = locationHistory[0];
+      const lastPoint = locationHistory[locationHistory.length - 1];
+      const straightLineDistance = this.calculateHaversineDistance(
+        parseFloat(firstPoint.latitude.toString()),
+        parseFloat(firstPoint.longitude.toString()),
+        parseFloat(lastPoint.latitude.toString()),
+        parseFloat(lastPoint.longitude.toString())
+      );
+
+      // If total displacement is less than 100 meters, driver hasn't moved
+      if (straightLineDistance < 0.1) {
+        console.warn('⚠️ Driver has not moved (displacement < 100m)');
+        return { distanceKm: 0, pointsUsed: 0 };
+      }
+
       console.log(`📊 Calculating distance from ${locationHistory.length} GPS points using Google Maps API`);
 
       // Filter out GPS points that are too close together or have unrealistic jumps
