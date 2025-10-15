@@ -156,14 +156,14 @@ class TripLocationTrackerService {
   }
 
   /**
-   * Calculate total distance traveled from GPS breadcrumbs
+   * Calculate total distance traveled from GPS breadcrumbs using Google Maps API
    */
   async calculateTripDistance(
     tripId: string,
     tripType: 'regular' | 'scheduled'
   ): Promise<{ distanceKm: number; pointsUsed: number }> {
     try {
-      console.log('=== CALCULATING TRIP DISTANCE FROM GPS ===');
+      console.log('=== CALCULATING TRIP DISTANCE FROM GPS (Google Maps API) ===');
       console.log('Trip ID:', tripId);
 
       // Fetch all location points from database
@@ -183,34 +183,25 @@ class TripLocationTrackerService {
         return { distanceKm: 0, pointsUsed: 0 };
       }
 
-      console.log(`📊 Calculating distance from ${locationHistory.length} GPS points`);
+      console.log(`📊 Calculating distance from ${locationHistory.length} GPS points using Google Maps API`);
 
-      // Calculate cumulative distance using Haversine formula
-      let totalDistanceKm = 0;
+      // Filter out GPS points that are too close together or have unrealistic jumps
+      const filteredPoints = this.filterGPSPoints(locationHistory);
+      console.log(`📍 Filtered to ${filteredPoints.length} waypoints`);
 
-      for (let i = 1; i < locationHistory.length; i++) {
-        const point1 = locationHistory[i - 1];
-        const point2 = locationHistory[i];
-
-        const distance = this.calculateHaversineDistance(
-          parseFloat(point1.latitude.toString()),
-          parseFloat(point1.longitude.toString()),
-          parseFloat(point2.latitude.toString()),
-          parseFloat(point2.longitude.toString())
-        );
-
-        // Filter out unrealistic jumps (e.g., > 500m in 5 seconds = 360 km/h)
-        if (distance < 0.5) {
-          totalDistanceKm += distance;
-        } else {
-          console.warn(`⚠️ Skipping unrealistic distance jump: ${distance.toFixed(3)}km`);
-        }
+      if (filteredPoints.length < 2) {
+        console.warn('⚠️ Not enough filtered GPS points');
+        return { distanceKm: 0, pointsUsed: 0 };
       }
 
-      console.log('✅ GPS Distance Calculation:', {
+      // Calculate distance using Google Maps Directions API
+      const totalDistanceKm = await this.calculateDistanceViaGoogleMaps(filteredPoints);
+
+      console.log('✅ GPS Distance Calculation (Google Maps):', {
         totalDistanceKm: totalDistanceKm.toFixed(2),
         pointsUsed: locationHistory.length,
-        avgDistancePerSegment: (totalDistanceKm / (locationHistory.length - 1)).toFixed(3),
+        filteredWaypoints: filteredPoints.length,
+        method: 'Google Maps Directions API'
       });
 
       // Clean up memory
@@ -224,6 +215,135 @@ class TripLocationTrackerService {
       console.error('❌ Error calculating trip distance:', error);
       throw error;
     }
+  }
+
+  /**
+   * Filter GPS points to remove noise and keep significant waypoints
+   */
+  private filterGPSPoints(points: any[]): any[] {
+    if (points.length <= 2) return points;
+
+    const filtered: any[] = [points[0]]; // Always include first point
+
+    for (let i = 1; i < points.length - 1; i++) {
+      const prevPoint = filtered[filtered.length - 1];
+      const currentPoint = points[i];
+
+      // Calculate distance from previous filtered point
+      const distance = this.calculateHaversineDistance(
+        parseFloat(prevPoint.latitude.toString()),
+        parseFloat(prevPoint.longitude.toString()),
+        parseFloat(currentPoint.latitude.toString()),
+        parseFloat(currentPoint.longitude.toString())
+      );
+
+      // Include point if it's at least 50 meters away (0.05 km) and less than 500 meters (avoid GPS jumps)
+      if (distance >= 0.05 && distance < 0.5) {
+        filtered.push(currentPoint);
+      }
+    }
+
+    filtered.push(points[points.length - 1]); // Always include last point
+
+    return filtered;
+  }
+
+  /**
+   * Calculate distance using Google Maps Directions API with waypoints
+   */
+  private async calculateDistanceViaGoogleMaps(points: any[]): Promise<number> {
+    try {
+      // Import GOOGLE_MAPS_API_KEY
+      const Constants = await import('expo-constants');
+      const GOOGLE_MAPS_API_KEY = Constants.default.expoConfig?.extra?.googleMapsApiKey || '';
+
+      if (!GOOGLE_MAPS_API_KEY) {
+        console.warn('⚠️ Google Maps API key not available, falling back to Haversine');
+        return this.calculateDistanceHaversine(points);
+      }
+
+      // Google Maps API limits: max 25 waypoints per request
+      // We'll batch the points and sum the distances
+      const MAX_WAYPOINTS_PER_REQUEST = 23; // Leave room for origin and destination
+      let totalDistanceMeters = 0;
+
+      // Split points into batches
+      for (let i = 0; i < points.length - 1; i += MAX_WAYPOINTS_PER_REQUEST) {
+        const batchEnd = Math.min(i + MAX_WAYPOINTS_PER_REQUEST + 1, points.length);
+        const batchPoints = points.slice(i, batchEnd);
+
+        if (batchPoints.length < 2) continue;
+
+        const origin = `${batchPoints[0].latitude},${batchPoints[0].longitude}`;
+        const destination = `${batchPoints[batchPoints.length - 1].latitude},${batchPoints[batchPoints.length - 1].longitude}`;
+
+        // Create waypoints string (exclude first and last)
+        let waypoints = '';
+        if (batchPoints.length > 2) {
+          const waypointCoords = batchPoints
+            .slice(1, -1)
+            .map((p: any) => `${p.latitude},${p.longitude}`)
+            .join('|');
+          waypoints = `&waypoints=${waypointCoords}`;
+        }
+
+        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}${waypoints}&key=${GOOGLE_MAPS_API_KEY}`;
+
+        console.log(`📡 Calling Google Maps API (batch ${Math.floor(i / MAX_WAYPOINTS_PER_REQUEST) + 1}, ${batchPoints.length} points)...`);
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.status === 'OK' && data.routes.length > 0) {
+          const route = data.routes[0];
+
+          // Sum up all leg distances
+          for (const leg of route.legs) {
+            totalDistanceMeters += leg.distance.value;
+          }
+
+          console.log(`✅ Batch distance: ${(totalDistanceMeters / 1000).toFixed(2)} km`);
+        } else {
+          console.warn(`⚠️ Google Maps API error for batch: ${data.status}`, data.error_message);
+          // Fall back to Haversine for this batch
+          const batchDistance = this.calculateDistanceHaversine(batchPoints);
+          totalDistanceMeters += batchDistance * 1000; // Convert km to meters
+        }
+
+        // Add small delay to avoid rate limiting
+        if (i + MAX_WAYPOINTS_PER_REQUEST < points.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+
+      return totalDistanceMeters / 1000; // Convert meters to kilometers
+    } catch (error) {
+      console.error('❌ Error using Google Maps API, falling back to Haversine:', error);
+      return this.calculateDistanceHaversine(points);
+    }
+  }
+
+  /**
+   * Fallback: Calculate distance using Haversine formula
+   */
+  private calculateDistanceHaversine(points: any[]): number {
+    let totalDistanceKm = 0;
+
+    for (let i = 1; i < points.length; i++) {
+      const point1 = points[i - 1];
+      const point2 = points[i];
+
+      const distance = this.calculateHaversineDistance(
+        parseFloat(point1.latitude.toString()),
+        parseFloat(point1.longitude.toString()),
+        parseFloat(point2.latitude.toString()),
+        parseFloat(point2.longitude.toString())
+      );
+
+      totalDistanceKm += distance;
+    }
+
+    return totalDistanceKm;
   }
 
   /**
