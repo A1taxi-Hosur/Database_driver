@@ -616,18 +616,18 @@ export class FareCalculationService {
     console.log('Vehicle Type:', vehicleType);
     console.log('Trip Type:', tripType);
     console.log('Actual GPS-tracked Distance:', actualDistanceKm, 'km');
+    console.log('Actual Duration:', actualDurationMinutes, 'minutes');
 
-    const startTime = scheduledTime ? new Date(scheduledTime) : new Date();
-    const endTime = new Date();
-    const durationHours = Math.abs(endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+    // Calculate number of days from actual trip duration
+    const durationHours = actualDurationMinutes / 60;
     const numberOfDays = Math.max(1, Math.ceil(durationHours / 24));
 
     console.log('📅 Trip duration calculation:', {
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
-      durationHours,
+      actualDurationMinutes,
+      durationHours: durationHours.toFixed(2),
       numberOfDays,
-      tripType
+      tripType,
+      calculation: `${actualDurationMinutes} min / 60 = ${durationHours.toFixed(2)} hours, ceil(${durationHours.toFixed(2)} / 24) = ${numberOfDays} days`
     });
 
     // ONE-WAY TRIP LOGIC

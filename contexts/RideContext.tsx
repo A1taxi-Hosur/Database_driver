@@ -685,14 +685,22 @@ export function RideProvider({ children }: RideProviderProps) {
         actualDistanceKm = gpsDistanceRaw
 
         // Calculate duration from ride start time
-        const rideStartTime = ride.created_at ? new Date(ride.created_at).getTime() : Date.now()
+        // For outstation/scheduled trips, use scheduled_time; otherwise use created_at
+        const startTimeString = ride.booking_type === 'outstation' && ride.scheduled_time
+          ? ride.scheduled_time
+          : ride.created_at
+        const rideStartTime = startTimeString ? new Date(startTimeString).getTime() : Date.now()
         const currentTime = Date.now()
         actualDurationMinutes = Math.round((currentTime - rideStartTime) / (1000 * 60))
 
-        console.log('✅ GPS-tracked distance for regular ride:', {
+        console.log('✅ GPS-tracked distance:', {
           distanceKm: actualDistanceKm.toFixed(2),
           durationMinutes: actualDurationMinutes,
+          durationHours: (actualDurationMinutes / 60).toFixed(2),
+          durationDays: Math.ceil(actualDurationMinutes / 60 / 24),
           gpsPointsUsed,
+          startTime: startTimeString,
+          bookingType: ride.booking_type,
           method: 'Real GPS tracking'
         })
       } catch (error) {
@@ -728,7 +736,11 @@ export function RideProvider({ children }: RideProviderProps) {
         } catch (googleError) {
           console.warn('⚠️ Google Maps fallback also failed, using straight-line distance:', googleError)
 
-          const rideStartTime = ride.created_at ? new Date(ride.created_at).getTime() : Date.now()
+          // For outstation/scheduled trips, use scheduled_time; otherwise use created_at
+          const startTimeString = ride.booking_type === 'outstation' && ride.scheduled_time
+            ? ride.scheduled_time
+            : ride.created_at
+          const rideStartTime = startTimeString ? new Date(startTimeString).getTime() : Date.now()
           const currentTime = Date.now()
           actualDurationMinutes = Math.round((currentTime - rideStartTime) / (1000 * 60))
 
