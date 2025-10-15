@@ -160,7 +160,7 @@ export class FareCalculationService {
           extra_km_charges: fareBreakdown.extra_km_charges,
           driver_allowance: fareBreakdown.driver_allowance,
           total_fare: fareBreakdown.total_fare,
-          fare_breakdown: fareBreakdown
+          fare_details: fareBreakdown
         })
         .select()
         .single();
