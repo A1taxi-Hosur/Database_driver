@@ -31,9 +31,12 @@ export const googleMapsService = {
         return null;
       }
 
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+      // Include alternatives=true to get multiple route options
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&alternatives=true&key=${GOOGLE_MAPS_API_KEY}`;
 
       console.log('📡 Calling Google Maps Directions API...');
+      console.log('📍 Origin:', origin);
+      console.log('📍 Destination:', destination);
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -44,6 +47,14 @@ export const googleMapsService = {
       const data = await response.json();
 
       if (data.status === 'OK' && data.routes.length > 0) {
+        // Log all available routes
+        console.log(`📊 Found ${data.routes.length} route(s):`);
+        data.routes.forEach((route: any, index: number) => {
+          const leg = route.legs[0];
+          console.log(`  Route ${index + 1}: ${(leg.distance.value / 1000).toFixed(2)} km, ${Math.round(leg.duration.value / 60)} min`);
+        });
+
+        // Use the first route (usually the recommended one)
         const route = data.routes[0];
         const leg = route.legs[0];
 
@@ -52,11 +63,13 @@ export const googleMapsService = {
         // Duration is already in seconds
         const durationSec = leg.duration.value;
 
-        console.log('✅ Google Maps Directions result:', {
+        console.log('✅ Google Maps Directions result (using Route 1):', {
           distance: `${distanceKm.toFixed(2)} km`,
           duration: `${Math.round(durationSec / 60)} min`,
           distanceMeters: leg.distance.value,
-          durationSeconds: durationSec
+          durationSeconds: durationSec,
+          startAddress: leg.start_address,
+          endAddress: leg.end_address
         });
 
         return {
