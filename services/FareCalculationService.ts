@@ -49,7 +49,19 @@ export class FareCalculationService {
     pickupLat: number,
     pickupLng: number,
     dropLat: number,
-    dropLng: number
+    dropLng: number,
+    driverDetails?: {
+      driver_id: string;
+      customer_id: string;
+      driver_name: string;
+      driver_phone?: string;
+      driver_rating?: number;
+      vehicle_id?: string;
+      vehicle_make?: string;
+      vehicle_model?: string;
+      vehicle_color?: string;
+      vehicle_license_plate?: string;
+    }
   ): Promise<{ success: boolean; fareBreakdown?: FareBreakdown; error?: string }> {
     try {
       console.log('=== CALCULATING TRIP FARE ===');
@@ -142,28 +154,183 @@ export class FareCalculationService {
           return { success: false, error: 'Invalid booking type' };
       }
 
-      // Store trip completion record
-      const { data: tripCompletion, error: completionError } = await supabaseAdmin
-        .from('trip_completions')
-        .insert({
-          ride_id: rideId,
-          booking_type: ride.booking_type,
-          vehicle_type: ride.vehicle_type,
-          actual_distance_km: actualDistanceKm,
-          actual_duration_minutes: actualDurationMinutes,
-          base_fare: fareBreakdown.base_fare,
-          distance_fare: fareBreakdown.distance_fare,
-          time_fare: fareBreakdown.time_fare,
-          surge_charges: fareBreakdown.surge_charges,
-          deadhead_charges: fareBreakdown.deadhead_charges,
-          platform_fee: fareBreakdown.platform_fee,
-          extra_km_charges: fareBreakdown.extra_km_charges,
-          driver_allowance: fareBreakdown.driver_allowance,
-          total_fare: fareBreakdown.total_fare,
-          fare_details: fareBreakdown
-        })
-        .select()
-        .single();
+      // Store trip completion record in the appropriate table based on booking type
+      let completionError = null;
+      let tripCompletion = null;
+
+      switch (ride.booking_type) {
+        case 'regular':
+          const regularResult = await supabaseAdmin
+            .from('trip_completions')
+            .insert({
+              ride_id: rideId,
+              driver_id: driverDetails?.driver_id,
+              customer_id: driverDetails?.customer_id,
+              booking_type: ride.booking_type,
+              vehicle_type: ride.vehicle_type,
+              trip_type: ride.trip_type,
+              pickup_address: ride.pickup_address,
+              destination_address: ride.destination_address,
+              actual_distance_km: actualDistanceKm,
+              actual_duration_minutes: actualDurationMinutes,
+              base_fare: fareBreakdown.base_fare,
+              distance_fare: fareBreakdown.distance_fare,
+              time_fare: fareBreakdown.time_fare,
+              surge_charges: fareBreakdown.surge_charges,
+              deadhead_charges: fareBreakdown.deadhead_charges,
+              platform_fee: fareBreakdown.platform_fee,
+              gst_on_charges: fareBreakdown.gst_on_charges,
+              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
+              extra_km_charges: fareBreakdown.extra_km_charges,
+              driver_allowance: fareBreakdown.driver_allowance,
+              total_fare: fareBreakdown.total_fare,
+              fare_details: fareBreakdown,
+              rental_hours: ride.rental_hours,
+              scheduled_time: ride.scheduled_time,
+              completed_at: new Date().toISOString(),
+              driver_name: driverDetails?.driver_name || 'Driver',
+              driver_phone: driverDetails?.driver_phone || '',
+              driver_rating: driverDetails?.driver_rating,
+              vehicle_id: driverDetails?.vehicle_id,
+              vehicle_make: driverDetails?.vehicle_make || '',
+              vehicle_model: driverDetails?.vehicle_model || '',
+              vehicle_color: driverDetails?.vehicle_color || '',
+              vehicle_license_plate: driverDetails?.vehicle_license_plate || ''
+            })
+            .select()
+            .single();
+          completionError = regularResult.error;
+          tripCompletion = regularResult.data;
+          break;
+
+        case 'rental':
+          const rentalResult = await supabaseAdmin
+            .from('rental_trip_completions')
+            .insert({
+              ride_id: rideId,
+              driver_id: driverDetails?.driver_id,
+              customer_id: driverDetails?.customer_id,
+              booking_type: ride.booking_type,
+              vehicle_type: ride.vehicle_type,
+              trip_type: ride.trip_type,
+              pickup_address: ride.pickup_address,
+              destination_address: ride.destination_address || '',
+              rental_hours: ride.rental_hours || 0,
+              actual_hours_used: Math.ceil(actualDurationMinutes / 60),
+              actual_distance_km: actualDistanceKm,
+              actual_duration_minutes: actualDurationMinutes,
+              base_fare: fareBreakdown.base_fare,
+              hourly_charges: fareBreakdown.time_fare,
+              distance_fare: fareBreakdown.distance_fare,
+              extra_km_charges: fareBreakdown.extra_km_charges,
+              extra_hour_charges: fareBreakdown.surge_charges,
+              platform_fee: fareBreakdown.platform_fee,
+              gst_on_charges: fareBreakdown.gst_on_charges,
+              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
+              total_fare: fareBreakdown.total_fare,
+              fare_details: fareBreakdown,
+              completed_at: new Date().toISOString(),
+              driver_name: driverDetails?.driver_name || 'Driver',
+              driver_phone: driverDetails?.driver_phone || '',
+              driver_rating: driverDetails?.driver_rating,
+              vehicle_id: driverDetails?.vehicle_id,
+              vehicle_make: driverDetails?.vehicle_make || '',
+              vehicle_model: driverDetails?.vehicle_model || '',
+              vehicle_color: driverDetails?.vehicle_color || '',
+              vehicle_license_plate: driverDetails?.vehicle_license_plate || ''
+            })
+            .select()
+            .single();
+          completionError = rentalResult.error;
+          tripCompletion = rentalResult.data;
+          break;
+
+        case 'outstation':
+          const outstationResult = await supabaseAdmin
+            .from('outstation_trip_completions')
+            .insert({
+              ride_id: rideId,
+              driver_id: driverDetails?.driver_id,
+              customer_id: driverDetails?.customer_id,
+              booking_type: ride.booking_type,
+              vehicle_type: ride.vehicle_type,
+              trip_type: ride.trip_type,
+              pickup_address: ride.pickup_address,
+              destination_address: ride.destination_address,
+              scheduled_time: ride.scheduled_time,
+              actual_distance_km: actualDistanceKm,
+              actual_duration_minutes: actualDurationMinutes,
+              actual_days: Math.ceil(actualDurationMinutes / (60 * 24)),
+              base_fare: fareBreakdown.base_fare,
+              distance_fare: fareBreakdown.distance_fare,
+              per_day_charges: fareBreakdown.time_fare,
+              driver_allowance: fareBreakdown.driver_allowance,
+              extra_km_charges: fareBreakdown.extra_km_charges,
+              toll_charges: fareBreakdown.surge_charges,
+              platform_fee: fareBreakdown.platform_fee,
+              gst_on_charges: fareBreakdown.gst_on_charges,
+              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
+              total_fare: fareBreakdown.total_fare,
+              fare_details: fareBreakdown,
+              completed_at: new Date().toISOString(),
+              driver_name: driverDetails?.driver_name || 'Driver',
+              driver_phone: driverDetails?.driver_phone || '',
+              driver_rating: driverDetails?.driver_rating,
+              vehicle_id: driverDetails?.vehicle_id,
+              vehicle_make: driverDetails?.vehicle_make || '',
+              vehicle_model: driverDetails?.vehicle_model || '',
+              vehicle_color: driverDetails?.vehicle_color || '',
+              vehicle_license_plate: driverDetails?.vehicle_license_plate || ''
+            })
+            .select()
+            .single();
+          completionError = outstationResult.error;
+          tripCompletion = outstationResult.data;
+          break;
+
+        case 'airport':
+          const airportResult = await supabaseAdmin
+            .from('airport_trip_completions')
+            .insert({
+              ride_id: rideId,
+              driver_id: driverDetails?.driver_id,
+              customer_id: driverDetails?.customer_id,
+              booking_type: ride.booking_type,
+              vehicle_type: ride.vehicle_type,
+              trip_type: ride.trip_type,
+              pickup_address: ride.pickup_address,
+              destination_address: ride.destination_address,
+              scheduled_time: ride.scheduled_time,
+              actual_distance_km: actualDistanceKm,
+              actual_duration_minutes: actualDurationMinutes,
+              base_fare: fareBreakdown.base_fare,
+              distance_fare: fareBreakdown.distance_fare,
+              airport_surcharge: fareBreakdown.surge_charges,
+              time_fare: fareBreakdown.time_fare,
+              platform_fee: fareBreakdown.platform_fee,
+              gst_on_charges: fareBreakdown.gst_on_charges,
+              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
+              total_fare: fareBreakdown.total_fare,
+              fare_details: fareBreakdown,
+              completed_at: new Date().toISOString(),
+              driver_name: driverDetails?.driver_name || 'Driver',
+              driver_phone: driverDetails?.driver_phone || '',
+              driver_rating: driverDetails?.driver_rating,
+              vehicle_id: driverDetails?.vehicle_id,
+              vehicle_make: driverDetails?.vehicle_make || '',
+              vehicle_model: driverDetails?.vehicle_model || '',
+              vehicle_color: driverDetails?.vehicle_color || '',
+              vehicle_license_plate: driverDetails?.vehicle_license_plate || ''
+            })
+            .select()
+            .single();
+          completionError = airportResult.error;
+          tripCompletion = airportResult.data;
+          break;
+
+        default:
+          return { success: false, error: 'Invalid booking type for completion storage' };
+      }
 
       if (completionError) {
         console.error('Error storing trip completion:', completionError);

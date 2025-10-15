@@ -827,7 +827,19 @@ export function RideProvider({ children }: RideProviderProps) {
         parseFloat(ride.pickup_latitude.toString()),
         parseFloat(ride.pickup_longitude.toString()),
         parseFloat(ride.destination_latitude.toString()),
-        parseFloat(ride.destination_longitude.toString())
+        parseFloat(ride.destination_longitude.toString()),
+        {
+          driver_id: driver.id,
+          customer_id: ride.customer_id,
+          driver_name: userData?.full_name || 'Driver',
+          driver_phone: '',
+          driver_rating: driverDetails.rating || null,
+          vehicle_id: vehicleData?.id || null,
+          vehicle_make: vehicleData?.make || '',
+          vehicle_model: vehicleData?.model || '',
+          vehicle_color: vehicleData?.color || '',
+          vehicle_license_plate: vehicleData?.registration_number || ''
+        }
       )
 
       console.log('🚨 FareCalculationService result:', fareResult)
@@ -868,77 +880,7 @@ export function RideProvider({ children }: RideProviderProps) {
       }
 
       console.log('✅ Ride marked as completed in database')
-
-      // Store trip completion data in database
-      console.log('💾 Storing trip completion data...')
-      console.log('📊 Trip completion payload:', {
-        ride_id: rideId,
-        driver_id: driver.id,
-        customer_id: ride.customer_id,
-        booking_type: ride.booking_type,
-        vehicle_type: ride.vehicle_type,
-        total_fare: fareResult.fareBreakdown.total_fare,
-        actual_distance_km: actualDistanceKm,
-        actual_duration_minutes: actualDurationMinutes
-      })
-
-      try {
-        const { data: insertedData, error: completionError } = await supabaseAdmin
-          .from('trip_completions')
-          .insert({
-            ride_id: rideId,
-            driver_id: driver.id,
-            customer_id: ride.customer_id,
-            booking_type: ride.booking_type,
-            vehicle_type: ride.vehicle_type,
-            trip_type: ride.trip_type,
-            pickup_address: ride.pickup_address,
-            destination_address: ride.destination_address,
-            actual_distance_km: actualDistanceKm,
-            actual_duration_minutes: actualDurationMinutes,
-            base_fare: fareResult.fareBreakdown.base_fare,
-            distance_fare: fareResult.fareBreakdown.distance_fare,
-            time_fare: fareResult.fareBreakdown.time_fare,
-            surge_charges: fareResult.fareBreakdown.surge_charges,
-            deadhead_charges: fareResult.fareBreakdown.deadhead_charges,
-            platform_fee: fareResult.fareBreakdown.platform_fee,
-            gst_on_charges: fareResult.fareBreakdown.gst_on_charges,
-            gst_on_platform_fee: fareResult.fareBreakdown.gst_on_platform_fee,
-            extra_km_charges: fareResult.fareBreakdown.extra_km_charges,
-            driver_allowance: fareResult.fareBreakdown.driver_allowance,
-            total_fare: fareResult.fareBreakdown.total_fare,
-            fare_details: fareResult.fareBreakdown.details,
-            rental_hours: ride.rental_hours,
-            scheduled_time: ride.scheduled_time,
-            completed_at: new Date().toISOString(),
-            driver_name: userData?.full_name || 'Driver',
-            driver_phone: '',
-            driver_rating: driverDetails.rating || null,
-            vehicle_id: vehicleData?.id || null,
-            vehicle_make: vehicleData?.make || '',
-            vehicle_model: vehicleData?.model || '',
-            vehicle_color: vehicleData?.color || '',
-            vehicle_license_plate: vehicleData?.registration_number || ''
-          })
-          .select()
-
-        if (completionError) {
-          console.error('❌ ERROR STORING TRIP COMPLETION:', completionError)
-          console.error('❌ Error details:', JSON.stringify(completionError, null, 2))
-          console.error('❌ Error message:', completionError.message)
-          console.error('❌ Error code:', completionError.code)
-          // This is a critical error - we should know about it
-          setError('Failed to store trip completion: ' + completionError.message)
-        } else {
-          console.log('✅ Trip completion data stored successfully with driver and vehicle details')
-          console.log('✅ Inserted record ID:', insertedData?.[0]?.id)
-        }
-      } catch (completionError: any) {
-        console.error('❌ EXCEPTION STORING TRIP COMPLETION:', completionError)
-        console.error('❌ Exception details:', completionError.message)
-        console.error('❌ Exception stack:', completionError.stack)
-        setError('Exception storing trip completion: ' + completionError.message)
-      }
+      console.log('✅ Trip completion data already stored by FareCalculationService')
 
       // Update driver status back to online
       await updateDriverStatus('online')
