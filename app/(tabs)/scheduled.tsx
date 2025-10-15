@@ -353,6 +353,17 @@ export default function ScheduledScreen() {
         actualDistanceKm = gpsDistance.distanceKm;
         gpsPointsUsed = gpsDistance.pointsUsed;
 
+        console.log('📍 GPS distance result:', {
+          distanceKm: actualDistanceKm,
+          pointsUsed: gpsPointsUsed
+        });
+
+        // If GPS returned 0 or very low distance, use Google Maps fallback
+        if (actualDistanceKm < 1 && gpsPointsUsed < 3) {
+          console.warn('⚠️ GPS tracking insufficient (distance < 1km or < 3 points), using Google Maps API...');
+          throw new Error('Insufficient GPS data');
+        }
+
         // Calculate duration from scheduled time or booking creation
         const startTime = currentBooking.scheduled_time
           ? new Date(currentBooking.scheduled_time).getTime()
@@ -367,37 +378,63 @@ export default function ScheduledScreen() {
           method: 'Real GPS tracking'
         });
       } catch (error) {
-        console.warn('⚠️ GPS distance calculation failed, using fallback calculation:', error);
+        console.warn('⚠️ GPS distance calculation failed, using Google Maps API fallback:', error);
 
-        // Fallback to straight-line distance
-        const pickupLat = currentBooking.pickup_latitude;
-        const pickupLng = currentBooking.pickup_longitude;
-        const destLat = currentBooking.destination_latitude;
-        const destLng = currentBooking.destination_longitude;
+        // Fallback to Google Maps Directions API
+        try {
+          const { googleMapsService } = await import('../../services/googleMapsService');
 
-        const R = 6371;
-        const dLat = (destLat - pickupLat) * Math.PI / 180;
-        const dLon = (destLng - pickupLng) * Math.PI / 180;
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(pickupLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
-          Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        actualDistanceKm = R * c;
+          const routeData = await googleMapsService.getDirections(
+            {
+              latitude: currentBooking.pickup_latitude,
+              longitude: currentBooking.pickup_longitude
+            },
+            {
+              latitude: currentBooking.destination_latitude,
+              longitude: currentBooking.destination_longitude
+            }
+          );
+
+          if (routeData && routeData.distance > 0) {
+            actualDistanceKm = routeData.distance;
+            console.log('✅ Using Google Maps distance:', actualDistanceKm.toFixed(2), 'km');
+          } else {
+            throw new Error('Google Maps returned invalid distance');
+          }
+        } catch (googleMapsError) {
+          console.warn('⚠️ Google Maps fallback failed, using straight-line distance:', googleMapsError);
+
+          // Last resort: straight-line distance with 1.3x multiplier for road routing
+          const pickupLat = currentBooking.pickup_latitude;
+          const pickupLng = currentBooking.pickup_longitude;
+          const destLat = currentBooking.destination_latitude;
+          const destLng = currentBooking.destination_longitude;
+
+          const R = 6371;
+          const dLat = (destLat - pickupLat) * Math.PI / 180;
+          const dLon = (destLng - pickupLng) * Math.PI / 180;
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(pickupLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          actualDistanceKm = R * c * 1.3; // Apply 1.3x multiplier for realistic road distance
+
+          console.log('⚠️ Using straight-line distance with 1.3x multiplier:', actualDistanceKm.toFixed(2), 'km');
+        }
 
         const startTime = currentBooking.scheduled_time
           ? new Date(currentBooking.scheduled_time).getTime()
           : new Date(currentBooking.created_at).getTime();
         const currentTime = Date.now();
         actualDurationMinutes = Math.round((currentTime - startTime) / (1000 * 60));
-
-        console.log('⚠️ Using fallback calculation for scheduled trip');
       }
 
-      console.log('Trip metrics:', {
-        actualDistanceKm,
+      console.log('📊 Final trip metrics:', {
+        actualDistanceKm: actualDistanceKm.toFixed(2),
         actualDurationMinutes,
         gpsPointsUsed,
+        bookingType: currentBooking.booking_type,
         pickupLat: currentBooking.pickup_latitude,
         pickupLng: currentBooking.pickup_longitude,
         dropLat: currentBooking.destination_latitude,
