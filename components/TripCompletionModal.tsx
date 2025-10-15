@@ -313,16 +313,6 @@ export default function TripCompletionModal({
                   </View>
                 )}
 
-                {/* Extra KM Charges (Outstation) */}
-                {tripData.fareBreakdown.extra_km_charges > 0 && (
-                  <View style={styles.fareItem}>
-                    <Text style={styles.fareLabel}>
-                      Extra KM Charges ({tripData.fareBreakdown.details?.extra_km?.toFixed(1)}km × ₹{tripData.fareBreakdown.details?.per_km_rate}/km)
-                    </Text>
-                    <Text style={styles.fareValue}>{formatCurrency(tripData.fareBreakdown.extra_km_charges)}</Text>
-                  </View>
-                )}
-
                 {/* Driver Allowance (Outstation) */}
                 {tripData.fareBreakdown.driver_allowance > 0 && (
                   <View style={styles.fareItem}>
