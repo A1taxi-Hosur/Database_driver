@@ -232,20 +232,27 @@ export function RideProvider({ children }: RideProviderProps) {
       }
 
       // Load pending rides (notifications for this driver)
-      console.log('🔍 Loading pending ride notifications...')
-      const { data: notifications, error: notificationsError } = await supabaseAdmin
-        .from('notifications')
-        .select('*')
-        .eq('user_id', driver.user_id)
-        .eq('type', 'ride_request')
-        .eq('status', 'unread')
-        .order('created_at', { ascending: false })
+      // Only show pending rides if driver doesn't have a current ride
+      const hasCurrentRide = currentRideData && currentRideData.length > 0;
 
-      if (notificationsError) {
-        console.error('Error loading notifications:', notificationsError)
-        setPendingRides([])
+      if (hasCurrentRide) {
+        console.log('⚠️ Driver has current ride - not loading pending ride requests');
+        setPendingRides([]);
       } else {
-        console.log(`📋 Found ${notifications?.length || 0} unread ride notifications`)
+        console.log('🔍 Loading pending ride notifications...')
+        const { data: notifications, error: notificationsError } = await supabaseAdmin
+          .from('notifications')
+          .select('*')
+          .eq('user_id', driver.user_id)
+          .eq('type', 'ride_request')
+          .eq('status', 'unread')
+          .order('created_at', { ascending: false })
+
+        if (notificationsError) {
+          console.error('Error loading notifications:', notificationsError)
+          setPendingRides([])
+        } else {
+          console.log(`📋 Found ${notifications?.length || 0} unread ride notifications`)
 
         if (notifications && notifications.length > 0) {
           // Get all ride IDs from notifications
@@ -331,6 +338,7 @@ export function RideProvider({ children }: RideProviderProps) {
         } else {
           setPendingRides([])
           console.log('✅ No pending ride notifications')
+        }
         }
       }
 
