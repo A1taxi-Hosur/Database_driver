@@ -1145,11 +1145,14 @@ export class FareCalculationService {
     // ROUND TRIP LOGIC
     console.log('🔄 ROUND TRIP CALCULATION');
     const isSameDayTrip = numberOfDays === 1;
-    const useSlab = isSameDayTrip && actualDistanceKm <= 150;
+    // For round trip: actualDistanceKm is the total GPS-tracked distance (both ways)
+    // Slabs apply when round trip distance ≤ 300km (i.e., one-way ≤ 150km)
+    const useSlab = isSameDayTrip && actualDistanceKm <= 300;
 
     console.log('🔍 Fare calculation method decision:', {
       isSameDayTrip,
       actualDistanceKm,
+      roundTripThreshold: 300,
       useSlab,
       method: useSlab ? 'SLAB SYSTEM' : 'PER-KM SYSTEM'
     });
@@ -1169,34 +1172,38 @@ export class FareCalculationService {
       } else {
         const slabPackage = slabPackages[0];
 
+        // Slabs are defined for one-way distance but cover round trip
+        // E.g., "10km Slab" = up to 20km round trip, "150km Slab" = up to 300km round trip
         const slabs = [
-          { limit: 10, fare: slabPackage.slab_10km },
-          { limit: 20, fare: slabPackage.slab_20km },
-          { limit: 30, fare: slabPackage.slab_30km },
-          { limit: 40, fare: slabPackage.slab_40km },
-          { limit: 50, fare: slabPackage.slab_50km },
-          { limit: 60, fare: slabPackage.slab_60km },
-          { limit: 70, fare: slabPackage.slab_70km },
-          { limit: 80, fare: slabPackage.slab_80km },
-          { limit: 90, fare: slabPackage.slab_90km },
-          { limit: 100, fare: slabPackage.slab_100km },
-          { limit: 110, fare: slabPackage.slab_110km },
-          { limit: 120, fare: slabPackage.slab_120km },
-          { limit: 130, fare: slabPackage.slab_130km },
-          { limit: 140, fare: slabPackage.slab_140km },
-          { limit: 150, fare: slabPackage.slab_150km }
+          { oneWayLimit: 10, roundTripLimit: 20, fare: slabPackage.slab_10km },
+          { oneWayLimit: 20, roundTripLimit: 40, fare: slabPackage.slab_20km },
+          { oneWayLimit: 30, roundTripLimit: 60, fare: slabPackage.slab_30km },
+          { oneWayLimit: 40, roundTripLimit: 80, fare: slabPackage.slab_40km },
+          { oneWayLimit: 50, roundTripLimit: 100, fare: slabPackage.slab_50km },
+          { oneWayLimit: 60, roundTripLimit: 120, fare: slabPackage.slab_60km },
+          { oneWayLimit: 70, roundTripLimit: 140, fare: slabPackage.slab_70km },
+          { oneWayLimit: 80, roundTripLimit: 160, fare: slabPackage.slab_80km },
+          { oneWayLimit: 90, roundTripLimit: 180, fare: slabPackage.slab_90km },
+          { oneWayLimit: 100, roundTripLimit: 200, fare: slabPackage.slab_100km },
+          { oneWayLimit: 110, roundTripLimit: 220, fare: slabPackage.slab_110km },
+          { oneWayLimit: 120, roundTripLimit: 240, fare: slabPackage.slab_120km },
+          { oneWayLimit: 130, roundTripLimit: 260, fare: slabPackage.slab_130km },
+          { oneWayLimit: 140, roundTripLimit: 280, fare: slabPackage.slab_140km },
+          { oneWayLimit: 150, roundTripLimit: 300, fare: slabPackage.slab_150km }
         ];
 
+        // Find the appropriate slab based on actual round trip distance
         let selectedSlab = slabs[slabs.length - 1];
         for (const slab of slabs) {
-          if (actualDistanceKm <= slab.limit) {
+          if (actualDistanceKm <= slab.roundTripLimit) {
             selectedSlab = slab;
             break;
           }
         }
 
         const slabFare = parseFloat(selectedSlab.fare?.toString() || '0');
-        const extraKm = Math.max(0, actualDistanceKm - selectedSlab.limit);
+        // No extra km charges within slab range - slab fare covers the full round trip
+        const extraKm = Math.max(0, actualDistanceKm - selectedSlab.roundTripLimit);
         const extraKmCharges = extraKm > 0 ? extraKm * parseFloat(slabPackage.extra_km_rate?.toString() || '0') : 0;
 
         // Get platform fee from fare matrix
@@ -1219,7 +1226,8 @@ export class FareCalculationService {
         const totalFare = Math.round(totalFareRaw);
 
         console.log('💰 SLAB CALCULATION:', {
-          selectedSlab: `${selectedSlab.limit}km`,
+          selectedSlab: `${selectedSlab.oneWayLimit}km one-way (${selectedSlab.roundTripLimit}km round trip)`,
+          actualRoundTripDistance: actualDistanceKm,
           slabFare,
           extraKm,
           extraKmRate: slabPackage.extra_km_rate,
@@ -1229,7 +1237,7 @@ export class FareCalculationService {
           gstOnPlatformFee,
           totalFareRaw,
           totalFare,
-          note: 'No driver allowance for same-day trips ≤150km'
+          note: 'Slab fare covers full round trip within limit. No per-km charges.'
         });
 
         return {
@@ -1252,9 +1260,11 @@ export class FareCalculationService {
             per_km_rate: parseFloat(slabPackage.extra_km_rate?.toString() || '0'),
             days_calculated: 1,
             within_allowance: extraKm === 0,
-            package_name: `${selectedSlab.limit}km Slab`,
+            package_name: `${selectedSlab.oneWayLimit}km Slab (covers up to ${selectedSlab.roundTripLimit}km round trip)`,
             extra_km: extraKm,
-            base_km_included: selectedSlab.limit,
+            base_km_included: selectedSlab.roundTripLimit,
+            slab_fare: slabFare,
+            pricing_method: 'SLAB',
             total_km_travelled: actualDistanceKm
           }
         };
