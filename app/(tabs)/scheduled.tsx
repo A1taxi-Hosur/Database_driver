@@ -496,7 +496,9 @@ export default function ScheduledScreen() {
           currentBooking.vehicle_type,
           actualDistanceKm,
           actualDurationMinutes,
-          currentBooking.rental_hours || 4
+          currentBooking.rental_hours || 4,
+          currentBooking.destination_latitude,
+          currentBooking.destination_longitude
         );
       } else if (currentBooking.booking_type === 'outstation') {
         fareBreakdown = await calculateOutstationFare(
@@ -956,7 +958,9 @@ async function calculateRentalFare(
   vehicleType: string,
   actualDistanceKm: number,
   actualDurationMinutes: number,
-  selectedHours: number
+  selectedHours: number,
+  dropLat: number,
+  dropLng: number
 ) {
   // Fetch rental fare package
   const { data: rentalFares, error } = await supabaseAdmin
@@ -977,11 +981,20 @@ async function calculateRentalFare(
   const kmIncluded = rentalFare.km_included;
   const extraKmRate = rentalFare.extra_km_rate;
 
+  // Hosur bus stand coordinates
+  const hosurBusStand = { lat: 12.7401984, lng: 77.824 };
+
+  // Calculate distance from drop-off point to Hosur bus stand
+  const distanceToHosur = calculateDistance(dropLat, dropLng, hosurBusStand.lat, hosurBusStand.lng);
+
+  // Total distance including return to Hosur bus stand
+  const totalDistanceWithReturn = actualDistanceKm + distanceToHosur;
+
   let extraKmCharges = 0;
   let withinAllowance = true;
 
-  if (actualDistanceKm > kmIncluded) {
-    const extraKm = actualDistanceKm - kmIncluded;
+  if (totalDistanceWithReturn > kmIncluded) {
+    const extraKm = totalDistanceWithReturn - kmIncluded;
     extraKmCharges = extraKm * extraKmRate;
     withinAllowance = false;
   }
@@ -1024,14 +1037,16 @@ async function calculateRentalFare(
       actual_distance_km: actualDistanceKm,
       actual_duration_minutes: actualDurationMinutes,
       base_km_included: kmIncluded,
-      extra_km: Math.max(0, actualDistanceKm - kmIncluded),
+      extra_km: Math.max(0, totalDistanceWithReturn - kmIncluded),
       per_km_rate: extraKmRate,
       within_allowance: withinAllowance,
       package_name: rentalFare.package_name,
       package_charges: packageCharges,
       gst_on_package: gstOnCharges,
       platform_fee: platformFee,
-      gst_on_platform_fee: gstOnPlatformFee
+      gst_on_platform_fee: gstOnPlatformFee,
+      distance_to_hosur_bus_stand: distanceToHosur,
+      total_distance_with_return: totalDistanceWithReturn
     }
   };
 }

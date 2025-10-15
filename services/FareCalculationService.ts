@@ -126,7 +126,9 @@ export class FareCalculationService {
             ride.vehicle_type,
             actualDistanceKm,
             actualDurationMinutes,
-            ride.selected_hours || 4
+            ride.selected_hours || 4,
+            dropLat,
+            dropLng
           );
           break;
 
@@ -431,7 +433,9 @@ export class FareCalculationService {
             booking.vehicle_type,
             actualDistanceKm,
             actualDurationMinutes,
-            booking.rental_hours || 4
+            booking.rental_hours || 4,
+            dropLat,
+            dropLng
           );
           break;
 
@@ -910,12 +914,15 @@ export class FareCalculationService {
 
   /**
    * Rental ride fare calculation - using actual distance and duration
+   * Includes logic to add distance from drop-off to Hosur bus stand
    */
   private static async calculateRentalFare(
     vehicleType: string,
     actualDistanceKm: number,
     actualDurationMinutes: number,
-    selectedHours: number
+    selectedHours: number,
+    dropLat: number,
+    dropLng: number
   ): Promise<FareBreakdown> {
     console.log('=== CALCULATING RENTAL FARE (ACTUAL DISTANCE & TIME) ===');
     console.log('Vehicle Type:', vehicleType);
@@ -952,21 +959,46 @@ export class FareCalculationService {
       extra_minute_rate: extraMinuteRate
     });
 
-    // Calculate extra KM charges based on ACTUAL distance
+    // Hosur bus stand coordinates
+    const hosurBusStand = { lat: 12.7401984, lng: 77.824 };
+
+    // Calculate distance from drop-off point to Hosur bus stand
+    const distanceToHosur = calculateDistance(
+      { latitude: dropLat, longitude: dropLng },
+      { latitude: hosurBusStand.lat, longitude: hosurBusStand.lng }
+    );
+
+    console.log('📍 Distance calculation:', {
+      drop_off: { lat: dropLat, lng: dropLng },
+      hosur_bus_stand: hosurBusStand,
+      distance_to_hosur: distanceToHosur.toFixed(2) + ' km'
+    });
+
+    // Total distance including return to Hosur bus stand
+    const totalDistanceWithReturn = actualDistanceKm + distanceToHosur;
+
+    console.log('📊 Total distance with return:', {
+      actual_distance: actualDistanceKm,
+      distance_to_hosur: distanceToHosur,
+      total_with_return: totalDistanceWithReturn,
+      package_km_included: kmIncluded
+    });
+
+    // Calculate extra KM charges based on total distance (actual + return to Hosur)
     let extraKmCharges = 0;
     let extraKm = 0;
-    if (actualDistanceKm > kmIncluded) {
-      extraKm = actualDistanceKm - kmIncluded;
+    if (totalDistanceWithReturn > kmIncluded) {
+      extraKm = totalDistanceWithReturn - kmIncluded;
       extraKmCharges = extraKm * extraKmRate;
-      console.log('⚠️ Extra distance charges:', {
-        actual_distance: actualDistanceKm,
+      console.log('⚠️ Extra distance charges (including return to Hosur):', {
+        total_distance_with_return: totalDistanceWithReturn,
         km_included: kmIncluded,
         extra_km: extraKm,
         extra_km_rate: extraKmRate,
         extra_km_charges: extraKmCharges
       });
     } else {
-      console.log('✅ Distance within package allowance');
+      console.log('✅ Total distance (including return to Hosur) within package allowance');
     }
 
     // Calculate extra time charges based on ACTUAL duration
@@ -1043,7 +1075,9 @@ export class FareCalculationService {
         per_km_rate: extraKmRate,
         per_minute_rate: extraMinuteRate,
         within_allowance: withinAllowance,
-        package_name: rentalFare.package_name
+        package_name: rentalFare.package_name,
+        distance_to_hosur_bus_stand: distanceToHosur,
+        total_distance_with_return: totalDistanceWithReturn
       }
     };
   }
