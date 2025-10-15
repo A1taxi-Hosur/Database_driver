@@ -987,14 +987,35 @@ export class FareCalculationService {
       console.log('✅ Duration within package allowance');
     }
 
+    // Get platform fee from fare matrix
+    const { data: fareMatrix } = await supabaseAdmin
+      .from('fare_matrix')
+      .select('platform_fee')
+      .eq('booking_type', 'rental')
+      .eq('vehicle_type', vehicleType)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    const platformFee = parseFloat(fareMatrix?.platform_fee?.toString() || '20');
+
+    // Calculate GST on charges (base fare + extra charges)
+    const chargesSubtotal = baseFare + extraKmCharges + extraTimeCharges;
+    const gstOnCharges = chargesSubtotal * 0.05; // 5% GST
+
+    // Calculate GST on platform fee
+    const gstOnPlatformFee = platformFee * 0.18; // 18% GST
+
     const withinAllowance = extraKmCharges === 0 && extraTimeCharges === 0;
-    const totalFareRaw = baseFare + extraKmCharges + extraTimeCharges;
+    const totalFareRaw = baseFare + extraKmCharges + extraTimeCharges + platformFee + gstOnCharges + gstOnPlatformFee;
     const totalFare = Math.round(totalFareRaw);
 
     console.log('💰 Rental fare breakdown (actual usage):', {
       baseFare,
       extraKmCharges,
       extraTimeCharges,
+      platformFee,
+      gstOnCharges,
+      gstOnPlatformFee,
       totalFareRaw,
       totalFare,
       withinAllowance
@@ -1008,9 +1029,9 @@ export class FareCalculationService {
       time_fare: extraTimeCharges,
       surge_charges: 0,
       deadhead_charges: 0,
-      platform_fee: 0,
-      gst_on_charges: 0,
-      gst_on_platform_fee: 0,
+      platform_fee: platformFee,
+      gst_on_charges: gstOnCharges,
+      gst_on_platform_fee: gstOnPlatformFee,
       extra_km_charges: extraKmCharges,
       driver_allowance: 0,
       total_fare: totalFare,
