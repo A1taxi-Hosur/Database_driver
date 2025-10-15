@@ -526,7 +526,7 @@ export default function ScheduledScreen() {
         .eq('id', currentBooking.driver_id!)
         .single();
 
-      // Store trip completion with fare breakdown
+      // Store trip completion with fare breakdown in database
       console.log('💾 Storing trip completion for scheduled booking...');
       const completionResult = await FareCalculationService.calculateAndStoreScheduledBookingFare(
         currentBooking.id,
