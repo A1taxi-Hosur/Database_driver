@@ -185,6 +185,30 @@ class TripLocationTrackerService {
 
       console.log(`📊 Calculating distance from ${locationHistory.length} GPS points using Google Maps API`);
 
+      // Check if driver actually moved by comparing first and last point (straight-line displacement)
+      const firstPoint = locationHistory[0];
+      const lastPoint = locationHistory[locationHistory.length - 1];
+      const straightLineDisplacement = this.calculateHaversineDistance(
+        parseFloat(firstPoint.latitude.toString()),
+        parseFloat(firstPoint.longitude.toString()),
+        parseFloat(lastPoint.latitude.toString()),
+        parseFloat(lastPoint.longitude.toString())
+      );
+
+      console.log('📏 Displacement check:', {
+        firstPoint: `${firstPoint.latitude}, ${firstPoint.longitude}`,
+        lastPoint: `${lastPoint.latitude}, ${lastPoint.longitude}`,
+        straightLineDisplacement: straightLineDisplacement.toFixed(3) + ' km'
+      });
+
+      // If total displacement is less than 200 meters, driver hasn't moved significantly
+      // GPS naturally drifts 10-50m, so 200m is a reasonable threshold
+      if (straightLineDisplacement < 0.2) {
+        console.warn('⚠️ Driver has not moved significantly (displacement < 200m)');
+        console.warn('⚠️ GPS tracking considered invalid - will trigger fallback');
+        throw new Error('Driver did not move - displacement only ' + (straightLineDisplacement * 1000).toFixed(0) + ' meters');
+      }
+
       // Filter out GPS points that are too close together or have unrealistic jumps
       const filteredPoints = this.filterGPSPoints(locationHistory);
       console.log(`📍 Filtered to ${filteredPoints.length} waypoints`);
