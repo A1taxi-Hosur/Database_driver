@@ -641,23 +641,10 @@ export function RideProvider({ children }: RideProviderProps) {
         return { success: false }
       }
 
-      // Fetch driver details with vehicle information
+      // Fetch driver details
       const { data: driverDetails, error: driverError } = await supabaseAdmin
         .from('drivers')
-        .select(`
-          *,
-          user:users!drivers_user_id_fkey(
-            full_name,
-            phone
-          ),
-          vehicle:vehicles!drivers_vehicle_id_fkey(
-            id,
-            make,
-            model,
-            color,
-            license_plate
-          )
-        `)
+        .select('*')
         .eq('id', driver.id)
         .single()
 
@@ -667,11 +654,38 @@ export function RideProvider({ children }: RideProviderProps) {
         return { success: false }
       }
 
+      // Fetch user details for driver
+      const { data: userData, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('full_name, phone')
+        .eq('id', driverDetails.user_id)
+        .single()
+
+      if (userError) {
+        console.warn('⚠️ Error fetching user details:', userError)
+      }
+
+      // Fetch vehicle details if driver has a vehicle
+      let vehicleData = null
+      if (driverDetails.vehicle_id) {
+        const { data: vehicle, error: vehicleError } = await supabaseAdmin
+          .from('vehicles')
+          .select('id, make, model, color, license_plate')
+          .eq('id', driverDetails.vehicle_id)
+          .single()
+
+        if (vehicleError) {
+          console.warn('⚠️ Error fetching vehicle details:', vehicleError)
+        } else {
+          vehicleData = vehicle
+        }
+      }
+
       console.log('✅ Driver and vehicle details fetched:', {
-        driverName: driverDetails.user?.full_name,
-        driverPhone: driverDetails.user?.phone,
+        driverName: userData?.full_name,
+        driverPhone: userData?.phone,
         driverRating: driverDetails.rating,
-        vehicle: driverDetails.vehicle
+        vehicle: vehicleData
       })
 
       console.log('✅ Ride details fetched for completion:', {
@@ -898,14 +912,14 @@ export function RideProvider({ children }: RideProviderProps) {
             rental_hours: ride.rental_hours,
             scheduled_time: ride.scheduled_time,
             completed_at: new Date().toISOString(),
-            driver_name: driverDetails.user?.full_name || 'Driver',
-            driver_phone: driverDetails.user?.phone || '',
+            driver_name: userData?.full_name || 'Driver',
+            driver_phone: userData?.phone || '',
             driver_rating: driverDetails.rating || null,
-            vehicle_id: driverDetails.vehicle?.id || null,
-            vehicle_make: driverDetails.vehicle?.make || '',
-            vehicle_model: driverDetails.vehicle?.model || '',
-            vehicle_color: driverDetails.vehicle?.color || '',
-            vehicle_license_plate: driverDetails.vehicle?.license_plate || ''
+            vehicle_id: vehicleData?.id || null,
+            vehicle_make: vehicleData?.make || '',
+            vehicle_model: vehicleData?.model || '',
+            vehicle_color: vehicleData?.color || '',
+            vehicle_license_plate: vehicleData?.license_plate || ''
           })
           .select()
 
