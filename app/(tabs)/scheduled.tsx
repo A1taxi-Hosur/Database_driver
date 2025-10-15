@@ -28,6 +28,7 @@ import { supabaseAdmin } from '../../utils/supabase';
 import { openGoogleMapsNavigation } from '../../utils/maps';
 import OTPModal from '../../components/OTPModal';
 import TripCompletionModal from '../../components/TripCompletionModal';
+import { TripLocationTracker } from '../../services/TripLocationTracker';
 
 type ScheduledBooking = {
   id: string;
@@ -280,7 +281,7 @@ export default function ScheduledScreen() {
   };
 
   const handleStartTrip = async () => {
-    if (!currentBooking) return;
+    if (!currentBooking || !driver) return;
 
     try {
       const { data: updatedBooking, error } = await supabaseAdmin
@@ -306,6 +307,20 @@ export default function ScheduledScreen() {
       }
 
       setCurrentBooking(updatedBooking);
+
+      // Start GPS tracking for scheduled trip
+      console.log('🚀 Starting GPS tracking for scheduled trip...');
+      const trackingStarted = await TripLocationTracker.startTripTracking(
+        currentBooking.id,
+        'scheduled',
+        driver.id
+      );
+
+      if (trackingStarted) {
+        console.log('✅ GPS tracking started for scheduled trip');
+      } else {
+        console.warn('⚠️ Failed to start GPS tracking, but trip will continue');
+      }
     } catch (error) {
       console.error('Error starting trip:', error);
       Alert.alert('Error', 'Failed to start trip');
@@ -320,13 +335,69 @@ export default function ScheduledScreen() {
       console.log('Booking ID:', currentBooking.id);
       console.log('Booking type:', currentBooking.booking_type);
 
-      // Calculate actual distance and duration (using estimated values for now)
-      const actualDistanceKm = 25; // Default distance for testing
-      const actualDurationMinutes = 45; // Default duration for testing
+      console.log('📍 Stopping GPS tracking and calculating actual distance...');
+
+      // Stop GPS tracking
+      await TripLocationTracker.stopTripTracking(currentBooking.id);
+
+      let actualDistanceKm = 0;
+      let actualDurationMinutes = 0;
+      let gpsPointsUsed = 0;
+
+      try {
+        // Calculate distance from GPS breadcrumbs
+        const gpsDistance = await TripLocationTracker.calculateTripDistance(
+          currentBooking.id,
+          'scheduled'
+        );
+        actualDistanceKm = gpsDistance.distanceKm;
+        gpsPointsUsed = gpsDistance.pointsUsed;
+
+        // Calculate duration from scheduled time or booking creation
+        const startTime = currentBooking.scheduled_time
+          ? new Date(currentBooking.scheduled_time).getTime()
+          : new Date(currentBooking.created_at).getTime();
+        const currentTime = Date.now();
+        actualDurationMinutes = Math.round((currentTime - startTime) / (1000 * 60));
+
+        console.log('✅ GPS-tracked distance for scheduled trip:', {
+          distanceKm: actualDistanceKm.toFixed(2),
+          durationMinutes: actualDurationMinutes,
+          gpsPointsUsed,
+          method: 'Real GPS tracking'
+        });
+      } catch (error) {
+        console.warn('⚠️ GPS distance calculation failed, using fallback calculation:', error);
+
+        // Fallback to straight-line distance
+        const pickupLat = currentBooking.pickup_latitude;
+        const pickupLng = currentBooking.pickup_longitude;
+        const destLat = currentBooking.destination_latitude;
+        const destLng = currentBooking.destination_longitude;
+
+        const R = 6371;
+        const dLat = (destLat - pickupLat) * Math.PI / 180;
+        const dLon = (destLng - pickupLng) * Math.PI / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(pickupLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        actualDistanceKm = R * c;
+
+        const startTime = currentBooking.scheduled_time
+          ? new Date(currentBooking.scheduled_time).getTime()
+          : new Date(currentBooking.created_at).getTime();
+        const currentTime = Date.now();
+        actualDurationMinutes = Math.round((currentTime - startTime) / (1000 * 60));
+
+        console.log('⚠️ Using fallback calculation for scheduled trip');
+      }
 
       console.log('Trip metrics:', {
         actualDistanceKm,
         actualDurationMinutes,
+        gpsPointsUsed,
         pickupLat: currentBooking.pickup_latitude,
         pickupLng: currentBooking.pickup_longitude,
         dropLat: currentBooking.destination_latitude,

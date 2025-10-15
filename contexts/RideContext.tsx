@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { supabase, supabaseAdmin } from '../utils/supabase'
 import { useAuth } from './AuthContext'
 import { FareCalculationService } from '../services/FareCalculationService'
+import { TripLocationTracker } from '../services/TripLocationTracker'
 
 type Ride = {
   id: string
@@ -557,6 +558,20 @@ export function RideProvider({ children }: RideProviderProps) {
 
       setCurrentRide(updatedRide)
       console.log('✅ Ride started successfully')
+
+      // Start GPS tracking for this trip
+      console.log('🚀 Starting GPS tracking for trip...')
+      const trackingStarted = await TripLocationTracker.startTripTracking(
+        rideId,
+        'regular',
+        driver.id
+      )
+
+      if (trackingStarted) {
+        console.log('✅ GPS tracking started for trip')
+      } else {
+        console.warn('⚠️ Failed to start GPS tracking, but ride will continue')
+      }
     } catch (error) {
       console.error('Exception starting ride:', error)
       setError('Failed to start ride')
@@ -641,35 +656,34 @@ export function RideProvider({ children }: RideProviderProps) {
       const destLat = parseFloat(ride.destination_latitude.toString())
       const destLng = parseFloat(ride.destination_longitude.toString())
 
-      console.log('🗺️ Fetching actual road distance from Google Maps...')
+      console.log('📍 Stopping GPS tracking and calculating actual distance...')
 
-      // Import getRouteInfo from maps utils
-      const { getRouteInfo } = await import('../utils/maps')
+      // Stop GPS tracking
+      await TripLocationTracker.stopTripTracking(rideId)
 
       let actualDistanceKm = 0
       let actualDurationMinutes = 0
+      let gpsPointsUsed = 0
 
       try {
-        const routeInfo = await getRouteInfo(
-          { latitude: pickupLat, longitude: pickupLng },
-          { latitude: destLat, longitude: destLng }
-        )
+        // Calculate distance from GPS breadcrumbs
+        const gpsDistance = await TripLocationTracker.calculateTripDistance(rideId, 'regular')
+        actualDistanceKm = gpsDistance.distanceKm
+        gpsPointsUsed = gpsDistance.pointsUsed
 
-        if (routeInfo) {
-          actualDistanceKm = routeInfo.distanceValue
-          actualDurationMinutes = Math.round(routeInfo.durationValue)
+        // Calculate duration from ride start time
+        const rideStartTime = ride.created_at ? new Date(ride.created_at).getTime() : Date.now()
+        const currentTime = Date.now()
+        actualDurationMinutes = Math.round((currentTime - rideStartTime) / (1000 * 60))
 
-          console.log('✅ Google Maps route info:', {
-            distance: routeInfo.distance,
-            duration: routeInfo.duration,
-            distanceKm: actualDistanceKm.toFixed(2),
-            durationMinutes: actualDurationMinutes
-          })
-        } else {
-          throw new Error('Failed to get route info from Google Maps')
-        }
+        console.log('✅ GPS-tracked distance:', {
+          distanceKm: actualDistanceKm.toFixed(2),
+          durationMinutes: actualDurationMinutes,
+          gpsPointsUsed,
+          method: 'Real GPS tracking'
+        })
       } catch (error) {
-        console.warn('⚠️ Google Maps API failed, falling back to time-based calculation:', error)
+        console.warn('⚠️ GPS distance calculation failed, falling back to straight-line distance:', error)
 
         const rideStartTime = ride.created_at ? new Date(ride.created_at).getTime() : Date.now()
         const currentTime = Date.now()
@@ -685,20 +699,21 @@ export function RideProvider({ children }: RideProviderProps) {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
         actualDistanceKm = R * c
 
-        console.log('⚠️ Using fallback calculation:', {
+        console.log('⚠️ Using fallback straight-line calculation:', {
           actualDistanceKm: actualDistanceKm.toFixed(2),
           actualDurationMinutes
         })
       }
 
-      console.log('🚨 Trip metrics (Road distance from Google Maps):', {
+      console.log('🚨 Trip metrics (Real GPS-tracked distance):', {
         actualDistanceKm: actualDistanceKm.toFixed(2),
         actualDurationMinutes,
+        gpsPointsUsed,
         pickupLat,
         pickupLng,
         dropLat: destLat,
         dropLng: destLng,
-        method: 'Google Maps Distance Matrix API'
+        method: 'GPS Breadcrumb Tracking'
       })
 
       // Calculate fare using FareCalculationService
