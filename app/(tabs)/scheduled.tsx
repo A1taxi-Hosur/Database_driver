@@ -396,15 +396,21 @@ export default function ScheduledScreen() {
           );
 
           if (routeData && routeData.distance > 0) {
-            actualDistanceKm = routeData.distance;
-            console.log('✅ Using Google Maps distance:', actualDistanceKm.toFixed(2), 'km');
+            // For outstation trips, multiply by 2 for round trip (up and down)
+            const oneWayDistance = routeData.distance;
+            actualDistanceKm = oneWayDistance * 2;
+            console.log('✅ Using Google Maps distance:', {
+              oneWayDistance: oneWayDistance.toFixed(2),
+              roundTripDistance: actualDistanceKm.toFixed(2),
+              note: 'Distance doubled for round trip (up and down)'
+            });
           } else {
             throw new Error('Google Maps returned invalid distance');
           }
         } catch (googleMapsError) {
           console.warn('⚠️ Google Maps fallback failed, using straight-line distance:', googleMapsError);
 
-          // Last resort: straight-line distance with 1.3x multiplier for road routing
+          // Last resort: straight-line distance with 1.3x multiplier for road routing, then x2 for round trip
           const pickupLat = currentBooking.pickup_latitude;
           const pickupLng = currentBooking.pickup_longitude;
           const destLat = currentBooking.destination_latitude;
@@ -418,9 +424,14 @@ export default function ScheduledScreen() {
             Math.cos(pickupLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          actualDistanceKm = R * c * 1.3; // Apply 1.3x multiplier for realistic road distance
+          const oneWayDistance = R * c * 1.3; // Apply 1.3x multiplier for realistic road distance
+          actualDistanceKm = oneWayDistance * 2; // Double for round trip
 
-          console.log('⚠️ Using straight-line distance with 1.3x multiplier:', actualDistanceKm.toFixed(2), 'km');
+          console.log('⚠️ Using straight-line distance:', {
+            oneWayDistance: oneWayDistance.toFixed(2),
+            roundTripDistance: actualDistanceKm.toFixed(2),
+            note: 'Straight-line × 1.3 (roads) × 2 (round trip)'
+          });
         }
 
         const startTime = currentBooking.scheduled_time
