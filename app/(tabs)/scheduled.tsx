@@ -518,6 +518,40 @@ export default function ScheduledScreen() {
 
       console.log('✅ Fare calculated:', fareBreakdown.total_fare);
 
+      // Get driver details for completion record
+      const { data: driverData } = await supabaseAdmin
+        .from('drivers')
+        .select('*, vehicles(*)')
+        .eq('id', currentBooking.driver_id!)
+        .single();
+
+      // Store trip completion with fare breakdown
+      console.log('💾 Storing trip completion for scheduled booking...');
+      const completionResult = await FareCalculationService.calculateAndStoreScheduledBookingFare(
+        currentBooking.id,
+        actualDistanceKm,
+        actualDurationMinutes,
+        {
+          driver_id: currentBooking.driver_id!,
+          customer_id: currentBooking.customer_id,
+          driver_name: driverData?.full_name || 'Driver',
+          driver_phone: driverData?.phone_number,
+          driver_rating: driverData?.rating,
+          vehicle_id: driverData?.vehicles?.id,
+          vehicle_make: driverData?.vehicles?.make,
+          vehicle_model: driverData?.vehicles?.model,
+          vehicle_color: driverData?.vehicles?.color,
+          vehicle_license_plate: driverData?.vehicles?.license_plate
+        }
+      );
+
+      if (!completionResult.success) {
+        console.error('❌ Failed to store trip completion:', completionResult.error);
+        // Continue anyway - don't block user, but log the error
+      } else {
+        console.log('✅ Trip completion stored successfully in completion table');
+      }
+
       // Update booking status to completed
       const { data: updatedBooking, error: updateError } = await supabaseAdmin
         .from('scheduled_bookings')

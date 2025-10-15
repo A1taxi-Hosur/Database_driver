@@ -363,6 +363,258 @@ export class FareCalculationService {
   }
 
   /**
+   * Calculate fare for completed scheduled booking and store in appropriate completion table
+   */
+  static async calculateAndStoreScheduledBookingFare(
+    bookingId: string,
+    actualDistanceKm: number,
+    actualDurationMinutes: number,
+    driverDetails: {
+      driver_id: string;
+      customer_id: string;
+      driver_name: string;
+      driver_phone?: string;
+      driver_rating?: number;
+      vehicle_id?: string;
+      vehicle_make?: string;
+      vehicle_model?: string;
+      vehicle_color?: string;
+      vehicle_license_plate?: string;
+    }
+  ): Promise<{ success: boolean; fareBreakdown?: FareBreakdown; error?: string }> {
+    try {
+      console.log('=== CALCULATING SCHEDULED BOOKING FARE ===');
+      console.log('Booking ID:', bookingId);
+      console.log('Actual Distance:', actualDistanceKm, 'km');
+      console.log('Actual Duration:', actualDurationMinutes, 'minutes');
+
+      // Get booking details
+      const { data: booking, error: bookingError } = await supabaseAdmin
+        .from('scheduled_bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .single();
+
+      if (bookingError || !booking) {
+        console.error('Error fetching booking:', bookingError);
+        return { success: false, error: 'Booking not found' };
+      }
+
+      console.log('Booking details:', {
+        booking_type: booking.booking_type,
+        vehicle_type: booking.vehicle_type,
+        scheduled_time: booking.scheduled_time,
+        trip_type: booking.trip_type
+      });
+
+      // Get zones from database
+      const { data: zones, error: zonesError } = await supabaseAdmin
+        .from('zones')
+        .select('*')
+        .eq('is_active', true);
+
+      if (zonesError) {
+        console.error('Error fetching zones:', zonesError);
+        throw new Error('Failed to fetch zone configuration');
+      }
+
+      let fareBreakdown: FareBreakdown;
+      const pickupLat = booking.pickup_latitude;
+      const pickupLng = booking.pickup_longitude;
+      const dropLat = booking.destination_latitude;
+      const dropLng = booking.destination_longitude;
+
+      // Calculate fare based on booking type
+      switch (booking.booking_type) {
+        case 'rental':
+          fareBreakdown = await this.calculateRentalFare(
+            booking.vehicle_type,
+            actualDistanceKm,
+            actualDurationMinutes,
+            booking.rental_hours || 4
+          );
+          break;
+
+        case 'outstation':
+          fareBreakdown = await this.calculateOutstationFare(
+            booking.vehicle_type,
+            actualDistanceKm,
+            actualDurationMinutes,
+            booking.scheduled_time,
+            booking.trip_type || 'round_trip'
+          );
+          break;
+
+        case 'airport':
+          fareBreakdown = await this.calculateAirportFare(
+            booking.vehicle_type,
+            pickupLat,
+            pickupLng,
+            dropLat,
+            dropLng
+          );
+          break;
+
+        default:
+          return { success: false, error: 'Invalid booking type for scheduled booking' };
+      }
+
+      console.log('✅ Fare breakdown calculated:', fareBreakdown);
+
+      // Store in appropriate completion table
+      let completionError: any = null;
+      let tripCompletion: any = null;
+
+      switch (booking.booking_type) {
+        case 'rental':
+          const rentalResult = await supabaseAdmin
+            .from('rental_trip_completions')
+            .insert({
+              scheduled_booking_id: bookingId,
+              driver_id: driverDetails.driver_id,
+              customer_id: driverDetails.customer_id,
+              booking_type: booking.booking_type,
+              vehicle_type: booking.vehicle_type,
+              trip_type: booking.trip_type,
+              pickup_address: booking.pickup_address,
+              destination_address: booking.destination_address,
+              rental_hours: booking.rental_hours || 4,
+              actual_hours_used: actualDurationMinutes / 60,
+              actual_distance_km: actualDistanceKm,
+              actual_duration_minutes: actualDurationMinutes,
+              base_fare: fareBreakdown.base_fare,
+              hourly_charges: fareBreakdown.hourly_charges || 0,
+              distance_fare: fareBreakdown.distance_fare,
+              extra_km_charges: fareBreakdown.extra_km_charges || 0,
+              extra_hour_charges: fareBreakdown.extra_hour_charges || 0,
+              platform_fee: fareBreakdown.platform_fee,
+              gst_on_charges: fareBreakdown.gst_on_charges,
+              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
+              total_fare: fareBreakdown.total_fare,
+              fare_details: fareBreakdown,
+              driver_name: driverDetails.driver_name,
+              driver_phone: driverDetails.driver_phone || '',
+              driver_rating: driverDetails.driver_rating,
+              vehicle_id: driverDetails.vehicle_id,
+              vehicle_make: driverDetails.vehicle_make || '',
+              vehicle_model: driverDetails.vehicle_model || '',
+              vehicle_color: driverDetails.vehicle_color || '',
+              vehicle_license_plate: driverDetails.vehicle_license_plate || '',
+              completed_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+          completionError = rentalResult.error;
+          tripCompletion = rentalResult.data;
+          break;
+
+        case 'outstation':
+          const outstationResult = await supabaseAdmin
+            .from('outstation_trip_completions')
+            .insert({
+              scheduled_booking_id: bookingId,
+              driver_id: driverDetails.driver_id,
+              customer_id: driverDetails.customer_id,
+              booking_type: booking.booking_type,
+              vehicle_type: booking.vehicle_type,
+              trip_type: booking.trip_type,
+              pickup_address: booking.pickup_address,
+              destination_address: booking.destination_address,
+              scheduled_time: booking.scheduled_time,
+              actual_distance_km: actualDistanceKm,
+              actual_duration_minutes: actualDurationMinutes,
+              actual_days: Math.ceil(actualDurationMinutes / (24 * 60)),
+              base_fare: fareBreakdown.base_fare,
+              distance_fare: fareBreakdown.distance_fare,
+              per_day_charges: fareBreakdown.per_day_charges || 0,
+              driver_allowance: fareBreakdown.driver_allowance || 0,
+              extra_km_charges: fareBreakdown.extra_km_charges || 0,
+              toll_charges: fareBreakdown.toll_charges || 0,
+              platform_fee: fareBreakdown.platform_fee,
+              gst_on_charges: fareBreakdown.gst_on_charges,
+              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
+              total_fare: fareBreakdown.total_fare,
+              fare_details: fareBreakdown,
+              driver_name: driverDetails.driver_name,
+              driver_phone: driverDetails.driver_phone || '',
+              driver_rating: driverDetails.driver_rating,
+              vehicle_id: driverDetails.vehicle_id,
+              vehicle_make: driverDetails.vehicle_make || '',
+              vehicle_model: driverDetails.vehicle_model || '',
+              vehicle_color: driverDetails.vehicle_color || '',
+              vehicle_license_plate: driverDetails.vehicle_license_plate || '',
+              completed_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+          completionError = outstationResult.error;
+          tripCompletion = outstationResult.data;
+          break;
+
+        case 'airport':
+          const airportResult = await supabaseAdmin
+            .from('airport_trip_completions')
+            .insert({
+              scheduled_booking_id: bookingId,
+              driver_id: driverDetails.driver_id,
+              customer_id: driverDetails.customer_id,
+              booking_type: booking.booking_type,
+              vehicle_type: booking.vehicle_type,
+              trip_type: booking.trip_type,
+              pickup_address: booking.pickup_address,
+              destination_address: booking.destination_address,
+              scheduled_time: booking.scheduled_time,
+              actual_distance_km: actualDistanceKm,
+              actual_duration_minutes: actualDurationMinutes,
+              base_fare: fareBreakdown.base_fare,
+              distance_fare: fareBreakdown.distance_fare,
+              airport_surcharge: fareBreakdown.airport_surcharge || 0,
+              time_fare: fareBreakdown.time_fare || 0,
+              platform_fee: fareBreakdown.platform_fee,
+              gst_on_charges: fareBreakdown.gst_on_charges,
+              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
+              total_fare: fareBreakdown.total_fare,
+              fare_details: fareBreakdown,
+              driver_name: driverDetails.driver_name,
+              driver_phone: driverDetails.driver_phone || '',
+              driver_rating: driverDetails.driver_rating,
+              vehicle_id: driverDetails.vehicle_id,
+              vehicle_make: driverDetails.vehicle_make || '',
+              vehicle_model: driverDetails.vehicle_model || '',
+              vehicle_color: driverDetails.vehicle_color || '',
+              vehicle_license_plate: driverDetails.vehicle_license_plate || '',
+              completed_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+          completionError = airportResult.error;
+          tripCompletion = airportResult.data;
+          break;
+
+        default:
+          return { success: false, error: 'Invalid booking type for completion storage' };
+      }
+
+      if (completionError) {
+        console.error('❌ Error storing trip completion:', completionError);
+        console.error('❌ Error details:', JSON.stringify(completionError, null, 2));
+        console.error('❌ Error message:', completionError.message);
+        console.error('❌ Error code:', completionError.code);
+        console.error('❌ Error hint:', completionError.hint);
+        console.error('❌ Booking type:', booking.booking_type);
+        return { success: false, error: 'Failed to store trip completion: ' + completionError.message };
+      }
+
+      console.log('✅ Trip completion stored successfully:', tripCompletion);
+
+      return { success: true, fareBreakdown };
+    } catch (error: any) {
+      console.error('Exception calculating scheduled booking fare:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Regular ride fare calculation
    */
   private static async calculateRegularFare(
