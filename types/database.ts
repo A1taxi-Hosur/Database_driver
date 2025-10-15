@@ -386,6 +386,95 @@ export interface Database {
           created_at: string
         }
       }
+      trip_completions: {
+        Row: {
+          id: string
+          ride_id: string
+          driver_id: string
+          customer_id: string
+          booking_type: 'regular' | 'rental' | 'outstation' | 'airport'
+          vehicle_type: string
+          trip_type: 'one_way' | 'round_trip' | null
+          pickup_address: string
+          destination_address: string
+          actual_distance_km: number
+          actual_duration_minutes: number
+          base_fare: number
+          distance_fare: number
+          time_fare: number
+          surge_charges: number
+          deadhead_charges: number
+          platform_fee: number
+          gst_on_charges: number
+          gst_on_platform_fee: number
+          extra_km_charges: number
+          driver_allowance: number
+          total_fare: number
+          fare_details: any
+          rental_hours: number | null
+          scheduled_time: string | null
+          completed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ride_id: string
+          driver_id: string
+          customer_id: string
+          booking_type: 'regular' | 'rental' | 'outstation' | 'airport'
+          vehicle_type: string
+          trip_type?: 'one_way' | 'round_trip' | null
+          pickup_address: string
+          destination_address: string
+          actual_distance_km: number
+          actual_duration_minutes: number
+          base_fare?: number
+          distance_fare?: number
+          time_fare?: number
+          surge_charges?: number
+          deadhead_charges?: number
+          platform_fee?: number
+          gst_on_charges?: number
+          gst_on_platform_fee?: number
+          extra_km_charges?: number
+          driver_allowance?: number
+          total_fare: number
+          fare_details?: any
+          rental_hours?: number | null
+          scheduled_time?: string | null
+          completed_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ride_id?: string
+          driver_id?: string
+          customer_id?: string
+          booking_type?: 'regular' | 'rental' | 'outstation' | 'airport'
+          vehicle_type?: string
+          trip_type?: 'one_way' | 'round_trip' | null
+          pickup_address?: string
+          destination_address?: string
+          actual_distance_km?: number
+          actual_duration_minutes?: number
+          base_fare?: number
+          distance_fare?: number
+          time_fare?: number
+          surge_charges?: number
+          deadhead_charges?: number
+          platform_fee?: number
+          gst_on_charges?: number
+          gst_on_platform_fee?: number
+          extra_km_charges?: number
+          driver_allowance?: number
+          total_fare?: number
+          fare_details?: any
+          rental_hours?: number | null
+          scheduled_time?: string | null
+          completed_at?: string
+          created_at?: string
+        }
+      }
     }
   }
 }

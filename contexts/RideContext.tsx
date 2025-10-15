@@ -823,6 +823,50 @@ export function RideProvider({ children }: RideProviderProps) {
 
       console.log('✅ Ride marked as completed in database')
 
+      // Store trip completion data in database
+      console.log('💾 Storing trip completion data...')
+      try {
+        const { error: completionError } = await supabaseAdmin
+          .from('trip_completions')
+          .insert({
+            ride_id: rideId,
+            driver_id: driver.id,
+            customer_id: ride.customer_id,
+            booking_type: ride.booking_type,
+            vehicle_type: ride.vehicle_type,
+            trip_type: ride.trip_type,
+            pickup_address: ride.pickup_address,
+            destination_address: ride.destination_address,
+            actual_distance_km: actualDistanceKm,
+            actual_duration_minutes: actualDurationMinutes,
+            base_fare: fareResult.fareBreakdown.base_fare,
+            distance_fare: fareResult.fareBreakdown.distance_fare,
+            time_fare: fareResult.fareBreakdown.time_fare,
+            surge_charges: fareResult.fareBreakdown.surge_charges,
+            deadhead_charges: fareResult.fareBreakdown.deadhead_charges,
+            platform_fee: fareResult.fareBreakdown.platform_fee,
+            gst_on_charges: fareResult.fareBreakdown.gst_on_charges,
+            gst_on_platform_fee: fareResult.fareBreakdown.gst_on_platform_fee,
+            extra_km_charges: fareResult.fareBreakdown.extra_km_charges,
+            driver_allowance: fareResult.fareBreakdown.driver_allowance,
+            total_fare: fareResult.fareBreakdown.total_fare,
+            fare_details: fareResult.fareBreakdown.details,
+            rental_hours: ride.rental_hours,
+            scheduled_time: ride.scheduled_time,
+            completed_at: new Date().toISOString()
+          })
+
+        if (completionError) {
+          console.error('❌ Error storing trip completion:', completionError)
+          // Don't fail the entire completion if this fails - log the error
+        } else {
+          console.log('✅ Trip completion data stored successfully')
+        }
+      } catch (completionError) {
+        console.error('❌ Exception storing trip completion:', completionError)
+        // Don't fail the entire completion if this fails
+      }
+
       // Update driver status back to online
       await updateDriverStatus('online')
       console.log('✅ Driver status updated to online')
