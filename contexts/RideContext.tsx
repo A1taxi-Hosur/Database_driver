@@ -858,8 +858,19 @@ export function RideProvider({ children }: RideProviderProps) {
 
       // Store trip completion data in database
       console.log('💾 Storing trip completion data...')
+      console.log('📊 Trip completion payload:', {
+        ride_id: rideId,
+        driver_id: driver.id,
+        customer_id: ride.customer_id,
+        booking_type: ride.booking_type,
+        vehicle_type: ride.vehicle_type,
+        total_fare: fareResult.fareBreakdown.total_fare,
+        actual_distance_km: actualDistanceKm,
+        actual_duration_minutes: actualDurationMinutes
+      })
+
       try {
-        const { error: completionError } = await supabaseAdmin
+        const { data: insertedData, error: completionError } = await supabaseAdmin
           .from('trip_completions')
           .insert({
             ride_id: rideId,
@@ -896,16 +907,24 @@ export function RideProvider({ children }: RideProviderProps) {
             vehicle_color: driverDetails.vehicle?.color || '',
             vehicle_license_plate: driverDetails.vehicle?.license_plate || ''
           })
+          .select()
 
         if (completionError) {
-          console.error('❌ Error storing trip completion:', completionError)
-          // Don't fail the entire completion if this fails - log the error
+          console.error('❌ ERROR STORING TRIP COMPLETION:', completionError)
+          console.error('❌ Error details:', JSON.stringify(completionError, null, 2))
+          console.error('❌ Error message:', completionError.message)
+          console.error('❌ Error code:', completionError.code)
+          // This is a critical error - we should know about it
+          setError('Failed to store trip completion: ' + completionError.message)
         } else {
           console.log('✅ Trip completion data stored successfully with driver and vehicle details')
+          console.log('✅ Inserted record ID:', insertedData?.[0]?.id)
         }
-      } catch (completionError) {
-        console.error('❌ Exception storing trip completion:', completionError)
-        // Don't fail the entire completion if this fails
+      } catch (completionError: any) {
+        console.error('❌ EXCEPTION STORING TRIP COMPLETION:', completionError)
+        console.error('❌ Exception details:', completionError.message)
+        console.error('❌ Exception stack:', completionError.stack)
+        setError('Exception storing trip completion: ' + completionError.message)
       }
 
       // Update driver status back to online
