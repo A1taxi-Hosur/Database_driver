@@ -831,6 +831,11 @@ export function RideProvider({ children }: RideProviderProps) {
       setCurrentRide(null)
       console.log('✅ Current ride cleared from state')
 
+      // Refresh rides to fetch new available rides
+      console.log('🔄 Refreshing rides after completion...')
+      await loadRides()
+      console.log('✅ Rides refreshed - driver can now receive new ride requests')
+
       // Prepare completion data for modal - FIXED VERSION
       console.log('=== PREPARING COMPLETION DATA ===')
       console.log('Raw fareBreakdown from service:', JSON.stringify(fareResult.fareBreakdown, null, 2))
