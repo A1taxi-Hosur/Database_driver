@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
-import { supabase } from '../utils/supabase';
+import { supabaseAdmin } from '../utils/supabase';
 
 interface LocationPoint {
   latitude: number;
@@ -102,7 +102,7 @@ class TripLocationTrackerService {
       this.locationPoints.set(tripId, points);
 
       // Store in database
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('trip_location_history')
         .insert({
           [tripType === 'regular' ? 'ride_id' : 'scheduled_booking_id']: tripId,
