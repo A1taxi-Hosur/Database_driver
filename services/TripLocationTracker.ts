@@ -167,7 +167,7 @@ class TripLocationTrackerService {
       console.log('Trip ID:', tripId);
 
       // Fetch all location points from database
-      const { data: locationHistory, error } = await supabase
+      const { data: locationHistory, error } = await supabaseAdmin
         .from('trip_location_history')
         .select('*')
         .eq(tripType === 'regular' ? 'ride_id' : 'scheduled_booking_id', tripId)
