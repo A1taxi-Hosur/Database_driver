@@ -657,9 +657,9 @@ export function RideProvider({ children }: RideProviderProps) {
       // Fetch user details for driver
       const { data: userData, error: userError } = await supabaseAdmin
         .from('users')
-        .select('full_name, phone')
+        .select('full_name')
         .eq('id', driverDetails.user_id)
-        .single()
+        .maybeSingle()
 
       if (userError) {
         console.warn('⚠️ Error fetching user details:', userError)
@@ -683,7 +683,6 @@ export function RideProvider({ children }: RideProviderProps) {
 
       console.log('✅ Driver and vehicle details fetched:', {
         driverName: userData?.full_name,
-        driverPhone: userData?.phone,
         driverRating: driverDetails.rating,
         vehicle: vehicleData
       })
@@ -913,7 +912,7 @@ export function RideProvider({ children }: RideProviderProps) {
             scheduled_time: ride.scheduled_time,
             completed_at: new Date().toISOString(),
             driver_name: userData?.full_name || 'Driver',
-            driver_phone: userData?.phone || '',
+            driver_phone: '',
             driver_rating: driverDetails.rating || null,
             vehicle_id: vehicleData?.id || null,
             vehicle_make: vehicleData?.make || '',
