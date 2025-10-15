@@ -415,6 +415,14 @@ export interface Database {
           scheduled_time: string | null
           completed_at: string
           created_at: string
+          driver_name: string | null
+          driver_phone: string | null
+          driver_rating: number | null
+          vehicle_id: string | null
+          vehicle_make: string | null
+          vehicle_model: string | null
+          vehicle_color: string | null
+          vehicle_license_plate: string | null
         }
         Insert: {
           id?: string
@@ -444,6 +452,14 @@ export interface Database {
           scheduled_time?: string | null
           completed_at?: string
           created_at?: string
+          driver_name?: string | null
+          driver_phone?: string | null
+          driver_rating?: number | null
+          vehicle_id?: string | null
+          vehicle_make?: string | null
+          vehicle_model?: string | null
+          vehicle_color?: string | null
+          vehicle_license_plate?: string | null
         }
         Update: {
           id?: string
@@ -473,6 +489,14 @@ export interface Database {
           scheduled_time?: string | null
           completed_at?: string
           created_at?: string
+          driver_name?: string | null
+          driver_phone?: string | null
+          driver_rating?: number | null
+          vehicle_id?: string | null
+          vehicle_make?: string | null
+          vehicle_model?: string | null
+          vehicle_color?: string | null
+          vehicle_license_plate?: string | null
         }
       }
     }

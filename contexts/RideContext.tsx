@@ -641,6 +641,39 @@ export function RideProvider({ children }: RideProviderProps) {
         return { success: false }
       }
 
+      // Fetch driver details with vehicle information
+      const { data: driverDetails, error: driverError } = await supabaseAdmin
+        .from('drivers')
+        .select(`
+          *,
+          user:users!drivers_user_id_fkey(
+            full_name,
+            phone
+          ),
+          vehicle:vehicles!drivers_vehicle_id_fkey(
+            id,
+            make,
+            model,
+            color,
+            license_plate
+          )
+        `)
+        .eq('id', driver.id)
+        .single()
+
+      if (driverError || !driverDetails) {
+        console.error('❌ Error fetching driver details:', driverError)
+        setError('Failed to fetch driver details')
+        return { success: false }
+      }
+
+      console.log('✅ Driver and vehicle details fetched:', {
+        driverName: driverDetails.user?.full_name,
+        driverPhone: driverDetails.user?.phone,
+        driverRating: driverDetails.rating,
+        vehicle: driverDetails.vehicle
+      })
+
       console.log('✅ Ride details fetched for completion:', {
         id: ride.id,
         status: ride.status,
@@ -853,14 +886,22 @@ export function RideProvider({ children }: RideProviderProps) {
             fare_details: fareResult.fareBreakdown.details,
             rental_hours: ride.rental_hours,
             scheduled_time: ride.scheduled_time,
-            completed_at: new Date().toISOString()
+            completed_at: new Date().toISOString(),
+            driver_name: driverDetails.user?.full_name || 'Driver',
+            driver_phone: driverDetails.user?.phone || '',
+            driver_rating: driverDetails.rating || null,
+            vehicle_id: driverDetails.vehicle?.id || null,
+            vehicle_make: driverDetails.vehicle?.make || '',
+            vehicle_model: driverDetails.vehicle?.model || '',
+            vehicle_color: driverDetails.vehicle?.color || '',
+            vehicle_license_plate: driverDetails.vehicle?.license_plate || ''
           })
 
         if (completionError) {
           console.error('❌ Error storing trip completion:', completionError)
           // Don't fail the entire completion if this fails - log the error
         } else {
-          console.log('✅ Trip completion data stored successfully')
+          console.log('✅ Trip completion data stored successfully with driver and vehicle details')
         }
       } catch (completionError) {
         console.error('❌ Exception storing trip completion:', completionError)

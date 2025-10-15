@@ -207,4 +207,139 @@ export class TripCompletionService {
       return 0
     }
   }
+
+  /**
+   * Submit customer rating and feedback for a completed trip
+   */
+  static async submitRatingAndFeedback(
+    rideId: string,
+    customerId: string,
+    rating: number,
+    feedback: string
+  ): Promise<boolean> {
+    try {
+      console.log('=== SUBMITTING RATING AND FEEDBACK ===')
+      console.log('Ride ID:', rideId)
+      console.log('Customer ID:', customerId)
+      console.log('Rating:', rating)
+      console.log('Feedback length:', feedback.length)
+
+      // Validate rating
+      if (rating < 1 || rating > 5) {
+        console.error('Invalid rating value:', rating)
+        return false
+      }
+
+      // Update the ride with rating and feedback
+      const { error: rideError } = await supabaseAdmin
+        .from('rides')
+        .update({
+          rating: rating,
+          feedback: feedback || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', rideId)
+        .eq('customer_id', customerId)
+        .eq('status', 'completed')
+
+      if (rideError) {
+        console.error('Error updating ride with rating:', rideError)
+        return false
+      }
+
+      console.log('✅ Ride updated with rating and feedback')
+
+      // Get driver_id from the trip completion
+      const { data: tripCompletion, error: completionError } = await supabaseAdmin
+        .from('trip_completions')
+        .select('driver_id')
+        .eq('ride_id', rideId)
+        .maybeSingle()
+
+      if (completionError || !tripCompletion) {
+        console.error('Error fetching trip completion for driver update:', completionError)
+        return true
+      }
+
+      // Update driver's aggregate rating
+      await this.updateDriverRating(tripCompletion.driver_id)
+      console.log('✅ Driver rating updated')
+
+      return true
+    } catch (error) {
+      console.error('Exception submitting rating and feedback:', error)
+      return false
+    }
+  }
+
+  /**
+   * Update driver's aggregate rating based on all completed rides
+   */
+  private static async updateDriverRating(driverId: string): Promise<void> {
+    try {
+      // Get all ratings for this driver
+      const { data: rides, error: ridesError } = await supabaseAdmin
+        .from('rides')
+        .select('rating')
+        .eq('driver_id', driverId)
+        .eq('status', 'completed')
+        .not('rating', 'is', null)
+
+      if (ridesError) {
+        console.error('Error fetching driver ratings:', ridesError)
+        return
+      }
+
+      if (!rides || rides.length === 0) {
+        console.log('No ratings found for driver:', driverId)
+        return
+      }
+
+      // Calculate average rating
+      const totalRating = rides.reduce((sum, ride) => sum + (ride.rating || 0), 0)
+      const averageRating = totalRating / rides.length
+
+      // Update driver's rating
+      const { error: driverError } = await supabaseAdmin
+        .from('drivers')
+        .update({
+          rating: averageRating,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', driverId)
+
+      if (driverError) {
+        console.error('Error updating driver rating:', driverError)
+        return
+      }
+
+      console.log(`✅ Driver ${driverId} rating updated to ${averageRating.toFixed(2)}`)
+    } catch (error) {
+      console.error('Exception updating driver rating:', error)
+    }
+  }
+
+  /**
+   * Check if customer has already rated a trip
+   */
+  static async hasCustomerRatedTrip(rideId: string, customerId: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('rides')
+        .select('rating')
+        .eq('id', rideId)
+        .eq('customer_id', customerId)
+        .maybeSingle()
+
+      if (error) {
+        console.error('Error checking if customer rated trip:', error)
+        return false
+      }
+
+      return data?.rating !== null && data?.rating !== undefined
+    } catch (error) {
+      console.error('Exception checking if customer rated trip:', error)
+      return false
+    }
+  }
 }
