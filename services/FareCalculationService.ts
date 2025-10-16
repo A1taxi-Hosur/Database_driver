@@ -248,6 +248,10 @@ export class FareCalculationService {
           break;
 
         case 'outstation':
+          console.log('=== STORING OUTSTATION TRIP COMPLETION ===');
+          console.log('fareBreakdown to store:', JSON.stringify(fareBreakdown, null, 2));
+          console.log('Total fare from fareBreakdown:', fareBreakdown.total_fare);
+
           const outstationResult = await supabaseAdmin
             .from('outstation_trip_completions')
             .insert({
@@ -260,15 +264,15 @@ export class FareCalculationService {
               pickup_address: ride.pickup_address,
               destination_address: ride.destination_address,
               scheduled_time: ride.scheduled_time,
-              actual_distance_km: actualDistanceKm,
-              actual_duration_minutes: actualDurationMinutes,
-              actual_days: Math.ceil(actualDurationMinutes / (60 * 24)),
+              actual_distance_km: fareBreakdown.details.actual_distance_km,
+              actual_duration_minutes: fareBreakdown.details.actual_duration_minutes,
+              actual_days: fareBreakdown.details.days_calculated || Math.ceil(actualDurationMinutes / (60 * 24)),
               base_fare: fareBreakdown.base_fare,
               distance_fare: fareBreakdown.distance_fare,
-              per_day_charges: fareBreakdown.time_fare,
+              per_day_charges: 0,
               driver_allowance: fareBreakdown.driver_allowance,
               extra_km_charges: fareBreakdown.extra_km_charges,
-              toll_charges: fareBreakdown.surge_charges,
+              toll_charges: 0,
               platform_fee: fareBreakdown.platform_fee,
               gst_on_charges: fareBreakdown.gst_on_charges,
               gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
@@ -286,6 +290,9 @@ export class FareCalculationService {
             })
             .select()
             .single();
+
+          console.log('✅ Outstation trip completion stored:', outstationResult.data);
+          console.log('Total fare stored:', outstationResult.data?.total_fare);
           completionError = outstationResult.error;
           tripCompletion = outstationResult.data;
           break;
@@ -513,6 +520,10 @@ export class FareCalculationService {
           break;
 
         case 'outstation':
+          console.log('=== STORING SCHEDULED OUTSTATION TRIP COMPLETION ===');
+          console.log('fareBreakdown to store:', JSON.stringify(fareBreakdown, null, 2));
+          console.log('Total fare from fareBreakdown:', fareBreakdown.total_fare);
+
           const outstationResult = await supabaseAdmin
             .from('outstation_trip_completions')
             .insert({
@@ -525,15 +536,15 @@ export class FareCalculationService {
               pickup_address: booking.pickup_address,
               destination_address: booking.destination_address,
               scheduled_time: booking.scheduled_time,
-              actual_distance_km: actualDistanceKm,
-              actual_duration_minutes: actualDurationMinutes,
-              actual_days: Math.ceil(actualDurationMinutes / (24 * 60)),
+              actual_distance_km: fareBreakdown.details.actual_distance_km,
+              actual_duration_minutes: fareBreakdown.details.actual_duration_minutes,
+              actual_days: fareBreakdown.details.days_calculated || Math.ceil(actualDurationMinutes / (24 * 60)),
               base_fare: fareBreakdown.base_fare,
               distance_fare: fareBreakdown.distance_fare,
-              per_day_charges: fareBreakdown.per_day_charges || 0,
-              driver_allowance: fareBreakdown.driver_allowance || 0,
-              extra_km_charges: fareBreakdown.extra_km_charges || 0,
-              toll_charges: fareBreakdown.toll_charges || 0,
+              per_day_charges: 0,
+              driver_allowance: fareBreakdown.driver_allowance,
+              extra_km_charges: fareBreakdown.extra_km_charges,
+              toll_charges: 0,
               platform_fee: fareBreakdown.platform_fee,
               gst_on_charges: fareBreakdown.gst_on_charges,
               gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
@@ -551,6 +562,9 @@ export class FareCalculationService {
             })
             .select()
             .single();
+
+          console.log('✅ Scheduled outstation trip completion stored:', outstationResult.data);
+          console.log('Total fare stored:', outstationResult.data?.total_fare);
           completionError = outstationResult.error;
           tripCompletion = outstationResult.data;
           break;
