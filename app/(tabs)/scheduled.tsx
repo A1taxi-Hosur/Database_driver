@@ -488,39 +488,6 @@ export default function ScheduledScreen() {
         dropLng: currentBooking.destination_longitude
       });
 
-      // Calculate fare based on booking type
-      let fareBreakdown;
-      
-      if (currentBooking.booking_type === 'rental') {
-        fareBreakdown = await calculateRentalFare(
-          currentBooking.vehicle_type,
-          actualDistanceKm,
-          actualDurationMinutes,
-          currentBooking.rental_hours || 4,
-          currentBooking.destination_latitude,
-          currentBooking.destination_longitude
-        );
-      } else if (currentBooking.booking_type === 'outstation') {
-        fareBreakdown = await calculateOutstationFare(
-          currentBooking.vehicle_type,
-          actualDistanceKm,
-          actualDurationMinutes,
-          currentBooking.scheduled_time
-        );
-      } else if (currentBooking.booking_type === 'airport') {
-        fareBreakdown = await calculateAirportFare(
-          currentBooking.vehicle_type,
-          currentBooking.pickup_latitude,
-          currentBooking.pickup_longitude,
-          currentBooking.destination_latitude,
-          currentBooking.destination_longitude
-        );
-      } else {
-        throw new Error('Invalid booking type');
-      }
-
-      console.log('✅ Fare calculated:', fareBreakdown.total_fare);
-
       // Get driver details for completion record
       const { data: driverData } = await supabaseAdmin
         .from('drivers')
@@ -529,6 +496,7 @@ export default function ScheduledScreen() {
         .single();
 
       // Store trip completion with fare breakdown in database
+      // The backend service calculates and stores the correct fare
       console.log('💾 Storing trip completion for scheduled booking...');
       const completionResult = await FareCalculationService.calculateAndStoreScheduledBookingFare(
         currentBooking.id,
@@ -550,10 +518,15 @@ export default function ScheduledScreen() {
 
       if (!completionResult.success) {
         console.error('❌ Failed to store trip completion:', completionResult.error);
-        // Continue anyway - don't block user, but log the error
-      } else {
-        console.log('✅ Trip completion stored successfully in completion table');
+        Alert.alert('Error', 'Failed to calculate and store trip completion');
+        return;
       }
+
+      console.log('✅ Trip completion stored successfully in completion table');
+
+      // Use the fareBreakdown from backend service (the correct calculation)
+      const fareBreakdown = completionResult.fareBreakdown;
+      console.log('✅ Fare calculated from backend:', fareBreakdown.total_fare);
 
       // Update booking status to completed
       const { data: updatedBooking, error: updateError } = await supabaseAdmin
