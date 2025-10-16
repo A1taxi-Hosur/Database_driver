@@ -724,15 +724,15 @@ export class FareCalculationService {
               vehicle_type: booking.vehicle_type,
               pickup_address: booking.pickup_address,
               destination_address: booking.destination_address,
-              scheduled_time: booking.scheduled_time,
               rental_hours: booking.rental_hours,
+              actual_hours_used: actualDurationMinutes / 60,
               actual_distance_km: actualDistanceKm,
               actual_duration_minutes: actualDurationMinutes,
-              package_fare: fareBreakdown.base_fare,
-              distance_charges: fareBreakdown.distance_fare,
-              time_charges: fareBreakdown.time_fare,
-              extra_charges: fareBreakdown.extra_km_charges,
-              toll_charges: 0,
+              base_fare: fareBreakdown.base_fare,
+              hourly_charges: 0,
+              distance_fare: fareBreakdown.distance_fare,
+              extra_km_charges: fareBreakdown.extra_km_charges,
+              extra_hour_charges: 0,
               platform_fee: fareBreakdown.platform_fee,
               gst_on_charges: fareBreakdown.gst_on_charges,
               gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
@@ -753,6 +753,9 @@ export class FareCalculationService {
 
           completionError = rentalResult.error;
           console.log('✅ Rental completion stored:', rentalResult.data);
+          if (completionError) {
+            console.error('❌ Rental completion error:', completionError);
+          }
           break;
 
         case 'outstation':
@@ -816,8 +819,9 @@ export class FareCalculationService {
               actual_distance_km: actualDistanceKm,
               actual_duration_minutes: actualDurationMinutes,
               base_fare: fareBreakdown.base_fare,
-              distance_charges: fareBreakdown.distance_fare,
-              toll_charges: 0,
+              distance_fare: fareBreakdown.distance_fare,
+              airport_surcharge: 0,
+              time_fare: fareBreakdown.time_fare || 0,
               platform_fee: fareBreakdown.platform_fee,
               gst_on_charges: fareBreakdown.gst_on_charges,
               gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
@@ -838,6 +842,9 @@ export class FareCalculationService {
 
           completionError = airportResult.error;
           console.log('✅ Airport completion stored:', airportResult.data);
+          if (completionError) {
+            console.error('❌ Airport completion error:', completionError);
+          }
           break;
 
         default:
