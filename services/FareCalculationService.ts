@@ -40,6 +40,114 @@ export interface FareBreakdown {
 
 export class FareCalculationService {
   /**
+   * Helper method to round fare to 2 decimal places
+   */
+  private static roundFare(amount: number): number {
+    return Math.round(amount * 100) / 100;
+  }
+
+  /**
+   * Store pre-calculated fare breakdown for regular ride
+   * Use this when the client has already calculated the fare correctly
+   */
+  static async storeRegularRideFareBreakdown(
+    rideId: string,
+    fareBreakdown: FareBreakdown,
+    actualDistanceKm: number,
+    actualDurationMinutes: number,
+    driverDetails: {
+      driver_id: string;
+      customer_id: string;
+      driver_name: string;
+      driver_phone?: string;
+      driver_rating?: number;
+      vehicle_id?: string;
+      vehicle_make?: string;
+      vehicle_model?: string;
+      vehicle_color?: string;
+      vehicle_license_plate?: string;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('=== STORING PRE-CALCULATED REGULAR RIDE FARE ===');
+      console.log('Ride ID:', rideId);
+      console.log('Fare breakdown received:', JSON.stringify(fareBreakdown, null, 2));
+
+      // Get ride details
+      const { data: ride, error: rideError } = await supabaseAdmin
+        .from('rides')
+        .select('*')
+        .eq('id', rideId)
+        .single();
+
+      if (rideError || !ride) {
+        console.error('Error fetching ride:', rideError);
+        return { success: false, error: 'Ride not found' };
+      }
+
+      // Round the total fare
+      const roundedFareBreakdown = {
+        ...fareBreakdown,
+        total_fare: this.roundFare(fareBreakdown.total_fare)
+      };
+
+      // Store in trip_completions table
+      const { error: completionError } = await supabaseAdmin
+        .from('trip_completions')
+        .insert({
+          ride_id: rideId,
+          driver_id: driverDetails.driver_id,
+          customer_id: driverDetails.customer_id,
+          booking_type: ride.booking_type,
+          vehicle_type: ride.vehicle_type,
+          trip_type: ride.trip_type,
+          pickup_address: ride.pickup_address,
+          destination_address: ride.destination_address,
+          actual_distance_km: actualDistanceKm,
+          actual_duration_minutes: actualDurationMinutes,
+          base_fare: roundedFareBreakdown.base_fare,
+          distance_fare: roundedFareBreakdown.distance_fare,
+          time_fare: roundedFareBreakdown.time_fare,
+          surge_charges: roundedFareBreakdown.surge_charges,
+          deadhead_charges: roundedFareBreakdown.deadhead_charges,
+          platform_fee: roundedFareBreakdown.platform_fee,
+          gst_on_charges: roundedFareBreakdown.gst_on_charges,
+          gst_on_platform_fee: roundedFareBreakdown.gst_on_platform_fee,
+          extra_km_charges: roundedFareBreakdown.extra_km_charges,
+          driver_allowance: roundedFareBreakdown.driver_allowance,
+          total_fare: roundedFareBreakdown.total_fare,
+          fare_details: roundedFareBreakdown,
+          rental_hours: ride.rental_hours,
+          scheduled_time: ride.scheduled_time,
+          completed_at: new Date().toISOString(),
+          driver_name: driverDetails.driver_name,
+          driver_phone: driverDetails.driver_phone || '',
+          driver_rating: driverDetails.driver_rating,
+          vehicle_id: driverDetails.vehicle_id,
+          vehicle_make: driverDetails.vehicle_make || '',
+          vehicle_model: driverDetails.vehicle_model || '',
+          vehicle_color: driverDetails.vehicle_color || '',
+          vehicle_license_plate: driverDetails.vehicle_license_plate || ''
+        })
+        .select()
+        .single();
+
+      if (completionError) {
+        console.error('❌ Error storing trip completion:', completionError);
+        return { success: false, error: completionError.message };
+      }
+
+      console.log('✅ Pre-calculated fare breakdown stored successfully');
+      console.log('✅ Rounded total fare:', roundedFareBreakdown.total_fare);
+      return { success: true };
+
+    } catch (error: any) {
+      console.error('Exception storing fare breakdown:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Calculate fare for completed trip and store in trip_completions table
    */
   static async calculateAndStoreTripFare(
@@ -708,6 +816,12 @@ export class FareCalculationService {
         return { success: false, error: 'Booking not found' };
       }
 
+      // Round the total fare
+      const roundedFareBreakdown = {
+        ...fareBreakdown,
+        total_fare: this.roundFare(fareBreakdown.total_fare)
+      };
+
       let completionError: any = null;
 
       // Store in appropriate completion table based on booking type
@@ -728,16 +842,16 @@ export class FareCalculationService {
               actual_hours_used: actualDurationMinutes / 60,
               actual_distance_km: actualDistanceKm,
               actual_duration_minutes: actualDurationMinutes,
-              base_fare: fareBreakdown.base_fare,
+              base_fare: roundedFareBreakdown.base_fare,
               hourly_charges: 0,
-              distance_fare: fareBreakdown.distance_fare,
-              extra_km_charges: fareBreakdown.extra_km_charges,
+              distance_fare: roundedFareBreakdown.distance_fare,
+              extra_km_charges: roundedFareBreakdown.extra_km_charges,
               extra_hour_charges: 0,
-              platform_fee: fareBreakdown.platform_fee,
-              gst_on_charges: fareBreakdown.gst_on_charges,
-              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
-              total_fare: fareBreakdown.total_fare,
-              fare_details: fareBreakdown,
+              platform_fee: roundedFareBreakdown.platform_fee,
+              gst_on_charges: roundedFareBreakdown.gst_on_charges,
+              gst_on_platform_fee: roundedFareBreakdown.gst_on_platform_fee,
+              total_fare: roundedFareBreakdown.total_fare,
+              fare_details: roundedFareBreakdown,
               completed_at: new Date().toISOString(),
               driver_name: driverDetails.driver_name,
               driver_phone: driverDetails.driver_phone || '',
@@ -753,6 +867,7 @@ export class FareCalculationService {
 
           completionError = rentalResult.error;
           console.log('✅ Rental completion stored:', rentalResult.data);
+          console.log('✅ Rounded total fare:', roundedFareBreakdown.total_fare);
           if (completionError) {
             console.error('❌ Rental completion error:', completionError);
           }
@@ -774,18 +889,18 @@ export class FareCalculationService {
               scheduled_time: booking.scheduled_time,
               actual_distance_km: actualDistanceKm,
               actual_duration_minutes: actualDurationMinutes,
-              actual_days: fareBreakdown.details.days_calculated || 1,
-              base_fare: fareBreakdown.base_fare,
-              distance_fare: fareBreakdown.distance_fare,
+              actual_days: roundedFareBreakdown.details.days_calculated || 1,
+              base_fare: roundedFareBreakdown.base_fare,
+              distance_fare: roundedFareBreakdown.distance_fare,
               per_day_charges: 0,
-              driver_allowance: fareBreakdown.driver_allowance,
-              extra_km_charges: fareBreakdown.extra_km_charges,
+              driver_allowance: roundedFareBreakdown.driver_allowance,
+              extra_km_charges: roundedFareBreakdown.extra_km_charges,
               toll_charges: 0,
-              platform_fee: fareBreakdown.platform_fee,
-              gst_on_charges: fareBreakdown.gst_on_charges,
-              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
-              total_fare: fareBreakdown.total_fare,
-              fare_details: fareBreakdown,
+              platform_fee: roundedFareBreakdown.platform_fee,
+              gst_on_charges: roundedFareBreakdown.gst_on_charges,
+              gst_on_platform_fee: roundedFareBreakdown.gst_on_platform_fee,
+              total_fare: roundedFareBreakdown.total_fare,
+              fare_details: roundedFareBreakdown,
               completed_at: new Date().toISOString(),
               driver_name: driverDetails.driver_name,
               driver_phone: driverDetails.driver_phone || '',
@@ -801,6 +916,10 @@ export class FareCalculationService {
 
           completionError = outstationResult.error;
           console.log('✅ Outstation completion stored:', outstationResult.data);
+          console.log('✅ Rounded total fare:', roundedFareBreakdown.total_fare);
+          if (completionError) {
+            console.error('❌ Outstation completion error:', completionError);
+          }
           break;
 
         case 'airport':
@@ -818,15 +937,15 @@ export class FareCalculationService {
               scheduled_time: booking.scheduled_time,
               actual_distance_km: actualDistanceKm,
               actual_duration_minutes: actualDurationMinutes,
-              base_fare: fareBreakdown.base_fare,
-              distance_fare: fareBreakdown.distance_fare,
+              base_fare: roundedFareBreakdown.base_fare,
+              distance_fare: roundedFareBreakdown.distance_fare,
               airport_surcharge: 0,
-              time_fare: fareBreakdown.time_fare || 0,
-              platform_fee: fareBreakdown.platform_fee,
-              gst_on_charges: fareBreakdown.gst_on_charges,
-              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
-              total_fare: fareBreakdown.total_fare,
-              fare_details: fareBreakdown,
+              time_fare: roundedFareBreakdown.time_fare || 0,
+              platform_fee: roundedFareBreakdown.platform_fee,
+              gst_on_charges: roundedFareBreakdown.gst_on_charges,
+              gst_on_platform_fee: roundedFareBreakdown.gst_on_platform_fee,
+              total_fare: roundedFareBreakdown.total_fare,
+              fare_details: roundedFareBreakdown,
               completed_at: new Date().toISOString(),
               driver_name: driverDetails.driver_name,
               driver_phone: driverDetails.driver_phone || '',
@@ -842,6 +961,7 @@ export class FareCalculationService {
 
           completionError = airportResult.error;
           console.log('✅ Airport completion stored:', airportResult.data);
+          console.log('✅ Rounded total fare:', roundedFareBreakdown.total_fare);
           if (completionError) {
             console.error('❌ Airport completion error:', completionError);
           }
@@ -1113,9 +1233,9 @@ export class FareCalculationService {
     console.log('- validGstOnCharges:', validGstOnCharges);
     console.log('- validGstOnPlatformFee:', validGstOnPlatformFee);
 
-    // Calculate total fare and round to nearest integer
+    // Calculate total fare and round to 2 decimal places
     const totalFareRaw = validBaseFare + validDistanceFare + validDeadheadCharges + validSurgeCharges + validPlatformFee + validGstOnCharges + validGstOnPlatformFee;
-    const totalFare = Math.round(totalFareRaw);
+    const totalFare = this.roundFare(totalFareRaw);
 
     console.log('=== FINAL TOTAL FARE ===');
     console.log('totalFare raw:', totalFareRaw, 'rounded:', totalFare, 'type:', typeof totalFare, 'isNaN:', isNaN(totalFare));
@@ -1287,7 +1407,7 @@ export class FareCalculationService {
 
     const withinAllowance = extraKmCharges === 0 && extraTimeCharges === 0;
     const totalFareRaw = baseFare + extraKmCharges + extraTimeCharges + platformFee + gstOnCharges + gstOnPlatformFee;
-    const totalFare = Math.round(totalFareRaw);
+    const totalFare = this.roundFare(totalFareRaw);
 
     console.log('💰 Rental fare breakdown (actual usage):', {
       baseFare,
@@ -1404,7 +1524,7 @@ export class FareCalculationService {
       const gstOnPlatformFee = platformFee * 0.18; // 18% GST
 
       const totalFareRaw = baseFare + kmFare + platformFee + gstOnCharges + gstOnPlatformFee;
-      const totalFare = Math.round(totalFareRaw);
+      const totalFare = this.roundFare(totalFareRaw);
 
       console.log('💰 ONE-WAY CALCULATION:', {
         baseFare,
@@ -1577,7 +1697,7 @@ export class FareCalculationService {
         const gstOnPlatformFee = platformFee * 0.18; // 18% GST
 
         const totalFareRaw = slabFare + extraKmCharges + platformFee + gstOnCharges + gstOnPlatformFee;
-        const totalFare = Math.round(totalFareRaw);
+        const totalFare = this.roundFare(totalFareRaw);
 
         console.log('💰 SLAB CALCULATION:', {
           selectedSlab: `${selectedSlab.oneWayLimit}km one-way (${selectedSlab.roundTripLimit}km round trip)`,
@@ -1708,7 +1828,7 @@ export class FareCalculationService {
     const gstOnPlatformFee = platformFee * 0.18; // 18% GST
 
     const totalFareRaw = baseFare + kmFare + driverAllowance + platformFee + gstOnCharges + gstOnPlatformFee;
-    const totalFare = Math.round(totalFareRaw);
+    const totalFare = this.roundFare(totalFareRaw);
 
     console.log('💰 ROUND TRIP fare breakdown:', {
       baseFare,
@@ -1830,7 +1950,7 @@ export class FareCalculationService {
     const gstOnPlatformFee = platformFee * 0.18; // 18% GST on platform fee
 
     const totalFareRaw = fare + platformFee + gstOnCharges + gstOnPlatformFee;
-    const totalFare = Math.round(totalFareRaw);
+    const totalFare = this.roundFare(totalFareRaw);
 
     console.log('💰 Airport fare breakdown:', {
       baseFare: fare,
