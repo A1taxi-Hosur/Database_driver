@@ -228,9 +228,9 @@ export default function RidesScreen() {
     let phoneNumber = currentRide?.customer?.phone_number;
     const email = currentRide?.customer?.email;
 
-    // Extract phone number from email if it's in the format: phone@phone.a1taxi.local or phone@a1taxi.app
+    // Extract phone number from email if it's in the format: +phone@phone.a1taxi.local or phone@a1taxi.app
     if (!phoneNumber && email) {
-      const phoneFromEmail = email.match(/^(\d+)@(phone\.)?a1taxi\.(local|app)$/);
+      const phoneFromEmail = email.match(/^(\+?\d+)@(phone\.)?a1taxi\.(local|app)$/);
       if (phoneFromEmail) {
         phoneNumber = phoneFromEmail[1];
         console.log('✅ Extracted phone number from email:', phoneNumber);
