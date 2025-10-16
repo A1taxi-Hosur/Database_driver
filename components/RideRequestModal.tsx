@@ -164,10 +164,6 @@ export default function RideRequestModal({
                 <Text style={styles.customerPhone}>
                   {ride.customer?.phone_number || 'No phone number'}
                 </Text>
-                <View style={styles.customerRating}>
-                  <Star size={14} color="#F59E0B" />
-                  <Text style={styles.ratingText}>4.8</Text>
-                </View>
               </View>
             </View>
             <TouchableOpacity style={styles.phoneButton}>
@@ -258,11 +254,6 @@ export default function RideRequestModal({
             </TouchableOpacity>
           </View>
 
-          {/* Timer */}
-          <View style={styles.timerSection}>
-            <Clock size={16} color="#F59E0B" />
-            <Text style={styles.timerText}>Auto-decline in 30 seconds</Text>
-          </View>
         </View>
       </View>
     </Modal>
