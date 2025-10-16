@@ -220,17 +220,32 @@ export default function RidesScreen() {
   };
 
   const handleCallCustomer = () => {
-    if (!currentRide?.customer?.phone_number) {
+    console.log('=== CALL CUSTOMER BUTTON CLICKED ===');
+    console.log('Current ride:', currentRide);
+    console.log('Customer data:', currentRide?.customer);
+    console.log('Phone number:', currentRide?.customer?.phone_number);
+
+    const customerName = currentRide?.customer?.full_name || 'Customer';
+    const phoneNumber = currentRide?.customer?.phone_number;
+    const email = currentRide?.customer?.email;
+
+    if (!phoneNumber) {
+      console.log('❌ Phone number not available');
+
+      // Show customer info even if phone is not available
+      const message = email
+        ? `Phone number not available for ${customerName}.\n\nCustomer Email: ${email}`
+        : `Phone number not available for ${customerName}.`;
+
       if (Platform.OS === 'web') {
-        window.alert('Customer phone number not available');
+        window.alert(message);
       } else {
-        Alert.alert('Phone Number', 'Customer phone number not available');
+        Alert.alert('Customer Contact', message);
       }
       return;
     }
 
-    const phoneNumber = currentRide.customer.phone_number;
-    const customerName = currentRide.customer.full_name || 'Customer';
+    console.log('✅ Initiating call to:', customerName, phoneNumber);
 
     if (Platform.OS === 'web') {
       const shouldCall = window.confirm(`Call ${customerName}?\n\nPhone: ${phoneNumber}`);

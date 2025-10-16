@@ -227,7 +227,8 @@ export function RideProvider({ children }: RideProviderProps) {
           id: ride.id,
           status: ride.status,
           pickup: ride.pickup_address,
-          destination: ride.destination_address
+          destination: ride.destination_address,
+          customer: ride.customer
         } : 'none')
       }
 
