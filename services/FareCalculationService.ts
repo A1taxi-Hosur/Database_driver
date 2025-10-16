@@ -40,10 +40,10 @@ export interface FareBreakdown {
 
 export class FareCalculationService {
   /**
-   * Helper method to round fare to 2 decimal places
+   * Helper method to round fare to nearest whole number
    */
   private static roundFare(amount: number): number {
-    return Math.round(amount * 100) / 100;
+    return Math.round(amount);
   }
 
   /**
@@ -1596,88 +1596,44 @@ export class FareCalculationService {
         const slabPackage = slabPackages[0];
 
         // Slabs are defined for one-way distance but cover round trip
-        // E.g., "10km Slab" = up to 20km round trip, "150km Slab" = up to 300km round trip
+        // E.g., "10km Slab" = up to 20km round trip, "50km Slab" = up to 100km round trip
+        // The slab name represents the one-way distance, and maxRoundTripKm is the total coverage
         const slabs = [
-          { oneWayLimit: 10, roundTripLimit: 20, fare: slabPackage.slab_10km },
-          { oneWayLimit: 20, roundTripLimit: 40, fare: slabPackage.slab_20km },
-          { oneWayLimit: 30, roundTripLimit: 60, fare: slabPackage.slab_30km },
-          { oneWayLimit: 40, roundTripLimit: 80, fare: slabPackage.slab_40km },
-          { oneWayLimit: 50, roundTripLimit: 100, fare: slabPackage.slab_50km },
-          { oneWayLimit: 60, roundTripLimit: 120, fare: slabPackage.slab_60km },
-          { oneWayLimit: 70, roundTripLimit: 140, fare: slabPackage.slab_70km },
-          { oneWayLimit: 80, roundTripLimit: 160, fare: slabPackage.slab_80km },
-          { oneWayLimit: 90, roundTripLimit: 180, fare: slabPackage.slab_90km },
-          { oneWayLimit: 100, roundTripLimit: 200, fare: slabPackage.slab_100km },
-          { oneWayLimit: 110, roundTripLimit: 220, fare: slabPackage.slab_110km },
-          { oneWayLimit: 120, roundTripLimit: 240, fare: slabPackage.slab_120km },
-          { oneWayLimit: 130, roundTripLimit: 260, fare: slabPackage.slab_130km },
-          { oneWayLimit: 140, roundTripLimit: 280, fare: slabPackage.slab_140km },
-          { oneWayLimit: 150, roundTripLimit: 300, fare: slabPackage.slab_150km }
+          { distance: 10, maxRoundTripKm: 20, fare: slabPackage.slab_10km },
+          { distance: 20, maxRoundTripKm: 40, fare: slabPackage.slab_20km },
+          { distance: 30, maxRoundTripKm: 60, fare: slabPackage.slab_30km },
+          { distance: 40, maxRoundTripKm: 80, fare: slabPackage.slab_40km },
+          { distance: 50, maxRoundTripKm: 100, fare: slabPackage.slab_50km },
+          { distance: 60, maxRoundTripKm: 120, fare: slabPackage.slab_60km },
+          { distance: 70, maxRoundTripKm: 140, fare: slabPackage.slab_70km },
+          { distance: 80, maxRoundTripKm: 160, fare: slabPackage.slab_80km },
+          { distance: 90, maxRoundTripKm: 180, fare: slabPackage.slab_90km },
+          { distance: 100, maxRoundTripKm: 200, fare: slabPackage.slab_100km },
+          { distance: 110, maxRoundTripKm: 220, fare: slabPackage.slab_110km },
+          { distance: 120, maxRoundTripKm: 240, fare: slabPackage.slab_120km },
+          { distance: 130, maxRoundTripKm: 260, fare: slabPackage.slab_130km },
+          { distance: 140, maxRoundTripKm: 280, fare: slabPackage.slab_140km },
+          { distance: 150, maxRoundTripKm: 300, fare: slabPackage.slab_150km }
         ];
 
-        // Find the appropriate slab based on actual round trip distance
-        // The slab selection should ROUND UP to provide adequate coverage
-        // For 99.4km, we should use 100km slab (not 50km) because:
-        // - Half of 99.4km is 49.7km one-way
-        // - Round up to nearest 10km slab = 50km one-way
-        // - But slabs are named by one-way distance and apply to round trips
-        // - So "100km slab" means 100km round trip capacity
-        //
-        // Client-side is selecting based on: ceil(actualDistance / 2 / 10) * 10
-        // For 99.4km: ceil(99.4 / 2 / 10) * 10 = ceil(4.97) * 10 = 5 * 10 = 50km one-way
-        // So the slab with oneWayLimit >= 50 is the 50km slab... but client shows 100km slab?
-        //
-        // Actually, looking at client log: "selectedSlabKm: 100"
-        // This suggests: find first slab where roundTripLimit >= actualDistance
-        // For 99.4km: first slab where limit >= 99.4 is 50km slab (100km limit)
-        // But client selected 100km slab (200km limit)...
-        //
-        // Perhaps client rounds UP the distance first? ceil(99.4) = 100, then selects 100km slab?
+        console.log('🔍 Slab selection for round trip distance:', actualDistanceKm, 'km');
 
-        console.log('🔍 Slab selection - Input distance:', actualDistanceKm);
+        // Find the appropriate slab where the total round trip distance fits
+        // For 87km round trip: should select 50km slab (covers up to 100km)
+        // Logic: Find first slab where actualDistanceKm <= maxRoundTripKm
+        const totalKmTravelled = actualDistanceKm;
+        const selectedSlab = slabs.find(s => totalKmTravelled <= s.maxRoundTripKm) || slabs[slabs.length - 1];
 
-        // Match client logic: Round ONE-WAY distance up to nearest 10km, then double for round trip slab
-        // For 99.4km round trip:
-        //   - One-way = 99.4 / 2 = 49.7km
-        //   - Round to next 10km boundary = ceil(49.7 / 10) * 10 = 50km
-        //   - Double for round trip slab name = 50 * 2 = 100km
-        //   - So use "100km slab" (which covers up to 200km round trip)
-
-        const oneWayDistance = actualDistanceKm / 2;
-        const roundedOneWay = Math.ceil(oneWayDistance / 10) * 10;
-        const targetSlabSize = roundedOneWay * 2; // This is the round trip capacity we need
-
-        console.log('📐 Slab calculation:', {
-          actualRoundTrip: actualDistanceKm,
-          oneWay: oneWayDistance,
-          roundedOneWay,
-          targetSlabSize
-        });
-
-        // Find slab that matches this size
-        // Use > (not >=) to ensure we get the NEXT slab up for safety
-        // For targetSlabSize = 100km, we want 100km slab (200km limit), not 50km slab (100km limit)
-        let selectedSlab = slabs[slabs.length - 1]; // Default to largest
-
-        for (const slab of slabs) {
-          if (slab.roundTripLimit > targetSlabSize) {
-            selectedSlab = slab;
-            console.log(`  ✅ Selected ${slab.oneWayLimit}km slab (covers up to ${slab.roundTripLimit}km round trip) - provides safety margin`);
-            break;
-          }
-        }
-
-        console.log('🎯 Final slab selection:', {
-          actualDistanceKm,
-          selectedSlabOneWay: selectedSlab.oneWayLimit,
-          selectedSlabRoundTrip: selectedSlab.roundTripLimit,
-          selectedSlabFare: selectedSlab.fare,
-          note: `Using first slab with limit > ${actualDistanceKm}km for safety margin`
+        console.log('✅ Selected slab:', {
+          slabName: `${selectedSlab.distance}km slab`,
+          coversUpTo: `${selectedSlab.maxRoundTripKm}km round trip`,
+          actualDistance: totalKmTravelled,
+          slabFare: selectedSlab.fare
         });
 
         const slabFare = parseFloat(selectedSlab.fare?.toString() || '0');
         // No extra km charges within slab range - slab fare covers the full round trip
-        const extraKm = Math.max(0, actualDistanceKm - selectedSlab.roundTripLimit);
+        const extraKm = Math.max(0, actualDistanceKm - selectedSlab.maxRoundTripKm);
         const extraKmCharges = extraKm > 0 ? extraKm * parseFloat(slabPackage.extra_km_rate?.toString() || '0') : 0;
 
         // Get platform fee from fare matrix
@@ -1700,7 +1656,7 @@ export class FareCalculationService {
         const totalFare = this.roundFare(totalFareRaw);
 
         console.log('💰 SLAB CALCULATION:', {
-          selectedSlab: `${selectedSlab.oneWayLimit}km one-way (${selectedSlab.roundTripLimit}km round trip)`,
+          selectedSlab: `${selectedSlab.distance}km one-way (${selectedSlab.maxRoundTripKm}km round trip)`,
           actualRoundTripDistance: actualDistanceKm,
           slabFare,
           extraKm,
@@ -1734,9 +1690,9 @@ export class FareCalculationService {
             per_km_rate: parseFloat(slabPackage.extra_km_rate?.toString() || '0'),
             days_calculated: 1,
             within_allowance: extraKm === 0,
-            package_name: `${selectedSlab.oneWayLimit}km Slab (covers up to ${selectedSlab.roundTripLimit}km round trip)`,
+            package_name: `${selectedSlab.distance}km Slab (covers up to ${selectedSlab.maxRoundTripKm}km round trip)`,
             extra_km: extraKm,
-            base_km_included: selectedSlab.roundTripLimit,
+            base_km_included: selectedSlab.maxRoundTripKm,
             slab_fare: slabFare,
             pricing_method: 'SLAB',
             total_km_travelled: actualDistanceKm
