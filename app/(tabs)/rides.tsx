@@ -223,11 +223,23 @@ export default function RidesScreen() {
     console.log('=== CALL CUSTOMER BUTTON CLICKED ===');
     console.log('Current ride:', currentRide);
     console.log('Customer data:', currentRide?.customer);
-    console.log('Phone number:', currentRide?.customer?.phone_number);
 
     const customerName = currentRide?.customer?.full_name || 'Customer';
-    const phoneNumber = currentRide?.customer?.phone_number;
+    let phoneNumber = currentRide?.customer?.phone_number;
     const email = currentRide?.customer?.email;
+
+    // Extract phone number from email if it's in the format: phone@phone.a1taxi.local or phone@a1taxi.app
+    if (!phoneNumber && email) {
+      const phoneFromEmail = email.match(/^(\d+)@(phone\.)?a1taxi\.(local|app)$/);
+      if (phoneFromEmail) {
+        phoneNumber = phoneFromEmail[1];
+        console.log('✅ Extracted phone number from email:', phoneNumber);
+      }
+    }
+
+    console.log('Phone number field:', currentRide?.customer?.phone_number);
+    console.log('Email field:', email);
+    console.log('Final phone number:', phoneNumber);
 
     if (!phoneNumber) {
       console.log('❌ Phone number not available');
