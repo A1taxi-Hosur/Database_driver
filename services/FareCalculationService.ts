@@ -249,50 +249,87 @@ export class FareCalculationService {
 
         case 'outstation':
           console.log('=== STORING OUTSTATION TRIP COMPLETION ===');
-          console.log('fareBreakdown to store:', JSON.stringify(fareBreakdown, null, 2));
-          console.log('Total fare from fareBreakdown:', fareBreakdown.total_fare);
+          console.log('fareBreakdown object:', JSON.stringify(fareBreakdown, null, 2));
+          console.log('Individual fare components to be stored:');
+          console.log('  - base_fare:', fareBreakdown.base_fare);
+          console.log('  - distance_fare:', fareBreakdown.distance_fare);
+          console.log('  - driver_allowance:', fareBreakdown.driver_allowance);
+          console.log('  - extra_km_charges:', fareBreakdown.extra_km_charges);
+          console.log('  - platform_fee:', fareBreakdown.platform_fee);
+          console.log('  - gst_on_charges:', fareBreakdown.gst_on_charges);
+          console.log('  - gst_on_platform_fee:', fareBreakdown.gst_on_platform_fee);
+          console.log('  - total_fare:', fareBreakdown.total_fare);
+          console.log('  - actual_distance_km:', fareBreakdown.details.actual_distance_km);
+          console.log('  - actual_duration_minutes:', fareBreakdown.details.actual_duration_minutes);
+
+          const insertData = {
+            ride_id: rideId,
+            driver_id: driverDetails?.driver_id,
+            customer_id: driverDetails?.customer_id,
+            booking_type: ride.booking_type,
+            vehicle_type: ride.vehicle_type,
+            trip_type: ride.trip_type,
+            pickup_address: ride.pickup_address,
+            destination_address: ride.destination_address,
+            scheduled_time: ride.scheduled_time,
+            actual_distance_km: fareBreakdown.details.actual_distance_km,
+            actual_duration_minutes: fareBreakdown.details.actual_duration_minutes,
+            actual_days: fareBreakdown.details.days_calculated || Math.ceil(actualDurationMinutes / (60 * 24)),
+            base_fare: fareBreakdown.base_fare,
+            distance_fare: fareBreakdown.distance_fare,
+            per_day_charges: 0,
+            driver_allowance: fareBreakdown.driver_allowance,
+            extra_km_charges: fareBreakdown.extra_km_charges,
+            toll_charges: 0,
+            platform_fee: fareBreakdown.platform_fee,
+            gst_on_charges: fareBreakdown.gst_on_charges,
+            gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
+            total_fare: fareBreakdown.total_fare,
+            fare_details: fareBreakdown,
+            completed_at: new Date().toISOString(),
+            driver_name: driverDetails?.driver_name || 'Driver',
+            driver_phone: driverDetails?.driver_phone || '',
+            driver_rating: driverDetails?.driver_rating,
+            vehicle_id: driverDetails?.vehicle_id,
+            vehicle_make: driverDetails?.vehicle_make || '',
+            vehicle_model: driverDetails?.vehicle_model || '',
+            vehicle_color: driverDetails?.vehicle_color || '',
+            vehicle_license_plate: driverDetails?.vehicle_license_plate || ''
+          };
+
+          console.log('Insert data object:', JSON.stringify(insertData, null, 2));
 
           const outstationResult = await supabaseAdmin
             .from('outstation_trip_completions')
-            .insert({
-              ride_id: rideId,
-              driver_id: driverDetails?.driver_id,
-              customer_id: driverDetails?.customer_id,
-              booking_type: ride.booking_type,
-              vehicle_type: ride.vehicle_type,
-              trip_type: ride.trip_type,
-              pickup_address: ride.pickup_address,
-              destination_address: ride.destination_address,
-              scheduled_time: ride.scheduled_time,
-              actual_distance_km: fareBreakdown.details.actual_distance_km,
-              actual_duration_minutes: fareBreakdown.details.actual_duration_minutes,
-              actual_days: fareBreakdown.details.days_calculated || Math.ceil(actualDurationMinutes / (60 * 24)),
-              base_fare: fareBreakdown.base_fare,
-              distance_fare: fareBreakdown.distance_fare,
-              per_day_charges: 0,
-              driver_allowance: fareBreakdown.driver_allowance,
-              extra_km_charges: fareBreakdown.extra_km_charges,
-              toll_charges: 0,
-              platform_fee: fareBreakdown.platform_fee,
-              gst_on_charges: fareBreakdown.gst_on_charges,
-              gst_on_platform_fee: fareBreakdown.gst_on_platform_fee,
-              total_fare: fareBreakdown.total_fare,
-              fare_details: fareBreakdown,
-              completed_at: new Date().toISOString(),
-              driver_name: driverDetails?.driver_name || 'Driver',
-              driver_phone: driverDetails?.driver_phone || '',
-              driver_rating: driverDetails?.driver_rating,
-              vehicle_id: driverDetails?.vehicle_id,
-              vehicle_make: driverDetails?.vehicle_make || '',
-              vehicle_model: driverDetails?.vehicle_model || '',
-              vehicle_color: driverDetails?.vehicle_color || '',
-              vehicle_license_plate: driverDetails?.vehicle_license_plate || ''
-            })
+            .insert(insertData)
             .select()
             .single();
 
-          console.log('✅ Outstation trip completion stored:', outstationResult.data);
-          console.log('Total fare stored:', outstationResult.data?.total_fare);
+          if (outstationResult.error) {
+            console.error('❌ Error inserting outstation trip completion:', outstationResult.error);
+          } else {
+            console.log('✅ Outstation trip completion stored successfully');
+            console.log('Stored data:', JSON.stringify(outstationResult.data, null, 2));
+
+            // CRITICAL VERIFICATION: Check if stored values match calculated values
+            const storedTotal = parseFloat(outstationResult.data?.total_fare?.toString() || '0');
+            const calculatedTotal = fareBreakdown.total_fare;
+
+            if (storedTotal !== calculatedTotal) {
+              console.error('🚨 MISMATCH DETECTED! 🚨');
+              console.error('Calculated total_fare:', calculatedTotal);
+              console.error('Stored total_fare:', storedTotal);
+              console.error('Difference:', Math.abs(storedTotal - calculatedTotal));
+            } else {
+              console.log('✅ VERIFICATION PASSED: Stored total matches calculated total:', calculatedTotal);
+            }
+
+            console.log('Component verification:');
+            console.log('  Base fare - Calculated:', fareBreakdown.base_fare, '| Stored:', outstationResult.data?.base_fare);
+            console.log('  Platform fee - Calculated:', fareBreakdown.platform_fee, '| Stored:', outstationResult.data?.platform_fee);
+            console.log('  GST on charges - Calculated:', fareBreakdown.gst_on_charges, '| Stored:', outstationResult.data?.gst_on_charges);
+            console.log('  Total fare - Calculated:', fareBreakdown.total_fare, '| Stored:', outstationResult.data?.total_fare);
+          }
           completionError = outstationResult.error;
           tripCompletion = outstationResult.data;
           break;
