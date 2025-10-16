@@ -525,7 +525,20 @@ export default function ScheduledScreen() {
       // Get driver details for completion record
       const { data: driverData } = await supabaseAdmin
         .from('drivers')
-        .select('*, vehicles(*)')
+        .select(`
+          *,
+          users!drivers_user_id_fkey(
+            full_name,
+            phone_number
+          ),
+          vehicles!fk_drivers_vehicle(
+            id,
+            make,
+            model,
+            color,
+            registration_number
+          )
+        `)
         .eq('id', currentBooking.assigned_driver_id!)
         .single();
 
@@ -539,14 +552,14 @@ export default function ScheduledScreen() {
         {
           driver_id: currentBooking.assigned_driver_id!,
           customer_id: currentBooking.customer_id,
-          driver_name: driverData?.full_name || 'Driver',
-          driver_phone: driverData?.phone_number,
+          driver_name: driverData?.users?.full_name || 'Driver',
+          driver_phone: driverData?.users?.phone_number,
           driver_rating: driverData?.rating,
           vehicle_id: driverData?.vehicles?.id,
           vehicle_make: driverData?.vehicles?.make,
           vehicle_model: driverData?.vehicles?.model,
           vehicle_color: driverData?.vehicles?.color,
-          vehicle_license_plate: driverData?.vehicles?.license_plate
+          vehicle_license_plate: driverData?.vehicles?.registration_number
         }
       );
 
