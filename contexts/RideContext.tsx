@@ -894,6 +894,9 @@ export function RideProvider({ children }: RideProviderProps) {
       await updateDriverStatus('online')
       console.log('✅ Driver status updated to online')
 
+      // Small delay to ensure database updates propagate
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       // Clear current ride
       setCurrentRide(null)
       console.log('✅ Current ride cleared from state')

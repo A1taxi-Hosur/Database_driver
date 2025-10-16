@@ -593,6 +593,9 @@ export default function ScheduledScreen() {
       await updateDriverStatus('online');
       console.log('✅ Driver status updated to online');
 
+      // Small delay to ensure database updates propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Clear current booking
       setCurrentBooking(null);
       console.log('✅ Current booking cleared');
