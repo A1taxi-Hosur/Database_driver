@@ -8,6 +8,8 @@ import {
   RefreshControl,
   Switch,
   Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MapPin, Clock, IndianRupee, User, Navigation, Phone, CircleCheck as CheckCircle, Circle as XCircle, CircleAlert as AlertCircle, Car, Power } from 'lucide-react-native';
@@ -217,11 +219,49 @@ export default function RidesScreen() {
     }
   };
 
+  const handleCallCustomer = () => {
+    if (!currentRide?.customer?.phone_number) {
+      if (Platform.OS === 'web') {
+        window.alert('Customer phone number not available');
+      } else {
+        Alert.alert('Phone Number', 'Customer phone number not available');
+      }
+      return;
+    }
+
+    const phoneNumber = currentRide.customer.phone_number;
+    const customerName = currentRide.customer.full_name || 'Customer';
+
+    if (Platform.OS === 'web') {
+      const shouldCall = window.confirm(`Call ${customerName}?\n\nPhone: ${phoneNumber}`);
+      if (shouldCall) {
+        window.open(`tel:${phoneNumber}`);
+      }
+    } else {
+      Alert.alert(
+        'Call Customer',
+        `${customerName}\n${phoneNumber}`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Call',
+            onPress: () => {
+              Linking.openURL(`tel:${phoneNumber}`).catch(err => {
+                console.error('Error opening phone dialer:', err);
+                Alert.alert('Error', 'Unable to open phone dialer');
+              });
+            }
+          }
+        ]
+      );
+    }
+  };
+
   const handleCompleteRide = async () => {
     console.log('🚨 COMPLETE RIDE BUTTON CLICKED!');
     console.log('🚨 Current ride exists:', !!currentRide);
     console.log('🚨 Current ride ID:', currentRide?.id);
-    
+
     if (!currentRide) return;
     
     console.log('🚨 About to call completeRide function...');
@@ -439,7 +479,7 @@ export default function RidesScreen() {
                 <Text style={styles.customerName}>
                   {currentRide.customer?.full_name || 'Customer'}
                 </Text>
-                <TouchableOpacity style={styles.phoneButton}>
+                <TouchableOpacity style={styles.phoneButton} onPress={handleCallCustomer}>
                   <Phone size={16} color="#2563EB" />
                 </TouchableOpacity>
               </View>
