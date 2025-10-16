@@ -3,6 +3,7 @@ import { supabase, supabaseAdmin } from '../utils/supabase'
 import { useAuth } from './AuthContext'
 import { FareCalculationService } from '../services/FareCalculationService'
 import { TripLocationTracker } from '../services/TripLocationTracker'
+import { notificationSoundService } from '../services/NotificationSoundService'
 
 type Ride = {
   id: string
@@ -80,6 +81,7 @@ export function RideProvider({ children }: RideProviderProps) {
   const [pendingRides, setPendingRides] = useState<Ride[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [previousPendingCount, setPreviousPendingCount] = useState(0)
   const { driver, updateDriverStatus } = useAuth()
 
   useEffect(() => {
@@ -88,6 +90,9 @@ export function RideProvider({ children }: RideProviderProps) {
       console.log('Driver:', driver.user?.full_name)
       console.log('Driver ID:', driver.id)
       console.log('Driver Status:', driver.status)
+
+      // Initialize notification sound service
+      notificationSoundService.initialize()
 
       // Load initial rides
       loadRides()
@@ -104,6 +109,7 @@ export function RideProvider({ children }: RideProviderProps) {
       return () => {
         console.log('🛑 Cleaning up auto-refresh interval')
         clearInterval(refreshInterval)
+        notificationSoundService.cleanup()
       }
     }
   }, [driver])
@@ -179,11 +185,15 @@ export function RideProvider({ children }: RideProviderProps) {
 
     if (payload.eventType === 'INSERT' && payload.new) {
       const notification = payload.new
-      
+
       if (notification.type === 'ride_request' && notification.data?.ride_id) {
         console.log('🚗 New ride request notification received')
         console.log('Ride ID from notification:', notification.data.ride_id)
-        
+
+        // Play notification sound and vibration
+        console.log('🔊 Playing notification sound and vibration')
+        await notificationSoundService.playRideRequestNotification()
+
         // Refresh rides to get the new request
         await loadRides()
       }
@@ -334,6 +344,13 @@ export function RideProvider({ children }: RideProviderProps) {
               }
             }))
 
+          // Play notification sound if we have new pending rides
+          if (rideRequests.length > previousPendingCount && rideRequests.length > 0) {
+            console.log('🔊 New ride request detected! Playing notification sound')
+            notificationSoundService.playRideRequestNotification()
+          }
+
+          setPreviousPendingCount(rideRequests.length)
           setPendingRides(rideRequests)
           console.log('✅ Pending rides loaded:', rideRequests.length)
         } else {

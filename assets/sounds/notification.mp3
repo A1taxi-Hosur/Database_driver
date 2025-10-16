@@ -1,0 +1,8 @@
+This is a placeholder file. Replace with an actual MP3 notification sound file.
+
+For testing purposes, the app will use a fallback beep sound generated programmatically.
+
+To add a proper notification sound:
+1. Download a notification sound in MP3 format
+2. Replace this file with the actual MP3 file
+3. Keep the filename as "notification.mp3"
