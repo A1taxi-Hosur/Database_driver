@@ -1149,15 +1149,21 @@ async function calculateOutstationFare(
     console.log('💰 [OUTSTATION-COMPLETION] Found slab package:', slabPackage);
 
     // Determine which slab to use based on distance
+    // Slab names represent ONE-WAY distance, but they cover ROUND-TRIP distance
+    // E.g., "50km slab" covers up to 100km round trip (50km × 2)
     const slabDistances = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150];
     let selectedSlab = null;
     let slabKm = 0;
 
+    let selectedSlabName = 0; // Store the slab name (10km, 20km, 50km, etc)
+
     for (const km of slabDistances) {
       const slabKey = `slab_${km}km`;
-      if (slabPackage[slabKey] && actualDistanceKm <= km) {
+      const maxRoundTripKm = km * 2; // Each slab covers double the distance for round trips
+      if (slabPackage[slabKey] && actualDistanceKm <= maxRoundTripKm) {
         selectedSlab = parseFloat(slabPackage[slabKey].toString());
-        slabKm = km;
+        slabKm = maxRoundTripKm; // Store the max coverage
+        selectedSlabName = km; // Store the slab name
         break;
       }
     }
@@ -1166,12 +1172,14 @@ async function calculateOutstationFare(
     if (!selectedSlab) {
       const highestSlabKey = 'slab_150km';
       selectedSlab = parseFloat(slabPackage[highestSlabKey]?.toString() || '0');
-      slabKm = 150;
+      slabKm = 300; // 150km × 2
+      selectedSlabName = 150;
     }
 
     console.log('💰 [OUTSTATION-COMPLETION] Selected slab:', {
       actualDistanceKm: actualDistanceKm.toFixed(2),
-      selectedSlabKm: slabKm,
+      slabName: `${selectedSlabName}km slab`,
+      coversUpTo: `${slabKm}km round trip`,
       slabFare: selectedSlab
     });
 
@@ -1194,7 +1202,7 @@ async function calculateOutstationFare(
 
     distanceFare = extraKmCharges;
     slabDetails = {
-      slab_range: `Up to ${slabKm}km`,
+      slab_range: `Up to ${selectedSlabName}km (${slabKm}km round trip)`,
       package_fare: baseFare,
       km_included: slabKm,
       extra_km: Math.max(0, actualDistanceKm - slabKm),
