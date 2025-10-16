@@ -1299,13 +1299,64 @@ export class FareCalculationService {
         ];
 
         // Find the appropriate slab based on actual round trip distance
-        let selectedSlab = slabs[slabs.length - 1];
+        // The slab selection should ROUND UP to provide adequate coverage
+        // For 99.4km, we should use 100km slab (not 50km) because:
+        // - Half of 99.4km is 49.7km one-way
+        // - Round up to nearest 10km slab = 50km one-way
+        // - But slabs are named by one-way distance and apply to round trips
+        // - So "100km slab" means 100km round trip capacity
+        //
+        // Client-side is selecting based on: ceil(actualDistance / 2 / 10) * 10
+        // For 99.4km: ceil(99.4 / 2 / 10) * 10 = ceil(4.97) * 10 = 5 * 10 = 50km one-way
+        // So the slab with oneWayLimit >= 50 is the 50km slab... but client shows 100km slab?
+        //
+        // Actually, looking at client log: "selectedSlabKm: 100"
+        // This suggests: find first slab where roundTripLimit >= actualDistance
+        // For 99.4km: first slab where limit >= 99.4 is 50km slab (100km limit)
+        // But client selected 100km slab (200km limit)...
+        //
+        // Perhaps client rounds UP the distance first? ceil(99.4) = 100, then selects 100km slab?
+
+        console.log('🔍 Slab selection - Input distance:', actualDistanceKm);
+
+        // Match client logic: Round ONE-WAY distance up to nearest 10km, then double for round trip slab
+        // For 99.4km round trip:
+        //   - One-way = 99.4 / 2 = 49.7km
+        //   - Round to next 10km boundary = ceil(49.7 / 10) * 10 = 50km
+        //   - Double for round trip slab name = 50 * 2 = 100km
+        //   - So use "100km slab" (which covers up to 200km round trip)
+
+        const oneWayDistance = actualDistanceKm / 2;
+        const roundedOneWay = Math.ceil(oneWayDistance / 10) * 10;
+        const targetSlabSize = roundedOneWay * 2; // This is the round trip capacity we need
+
+        console.log('📐 Slab calculation:', {
+          actualRoundTrip: actualDistanceKm,
+          oneWay: oneWayDistance,
+          roundedOneWay,
+          targetSlabSize
+        });
+
+        // Find slab that matches this size
+        // Use > (not >=) to ensure we get the NEXT slab up for safety
+        // For targetSlabSize = 100km, we want 100km slab (200km limit), not 50km slab (100km limit)
+        let selectedSlab = slabs[slabs.length - 1]; // Default to largest
+
         for (const slab of slabs) {
-          if (actualDistanceKm <= slab.roundTripLimit) {
+          if (slab.roundTripLimit > targetSlabSize) {
             selectedSlab = slab;
+            console.log(`  ✅ Selected ${slab.oneWayLimit}km slab (covers up to ${slab.roundTripLimit}km round trip) - provides safety margin`);
             break;
           }
         }
+
+        console.log('🎯 Final slab selection:', {
+          actualDistanceKm,
+          selectedSlabOneWay: selectedSlab.oneWayLimit,
+          selectedSlabRoundTrip: selectedSlab.roundTripLimit,
+          selectedSlabFare: selectedSlab.fare,
+          note: `Using first slab with limit > ${actualDistanceKm}km for safety margin`
+        });
 
         const slabFare = parseFloat(selectedSlab.fare?.toString() || '0');
         // No extra km charges within slab range - slab fare covers the full round trip
