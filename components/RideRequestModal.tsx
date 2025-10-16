@@ -9,12 +9,9 @@ import {
 } from 'react-native';
 import {
   MapPin,
-  Clock,
   IndianRupee,
   User,
-  Star,
   Navigation,
-  Phone,
   X,
   Check
 } from 'lucide-react-native';
@@ -153,22 +150,14 @@ export default function RideRequestModal({
 
           {/* Customer Info */}
           <View style={styles.customerSection}>
-            <View style={styles.customerInfo}>
-              <View style={styles.customerAvatar}>
-                <User size={24} color="#64748B" />
-              </View>
-              <View style={styles.customerDetails}>
-                <Text style={styles.customerName}>
-                  {ride.customer?.full_name || 'Anonymous Customer'}
-                </Text>
-                <Text style={styles.customerPhone}>
-                  {ride.customer?.phone_number || 'No phone number'}
-                </Text>
-              </View>
+            <View style={styles.customerAvatar}>
+              <User size={24} color="#64748B" />
             </View>
-            <TouchableOpacity style={styles.phoneButton}>
-              <Phone size={20} color="#2563EB" />
-            </TouchableOpacity>
+            <View style={styles.customerDetails}>
+              <Text style={styles.customerName}>
+                {ride.customer?.full_name || 'Anonymous Customer'}
+              </Text>
+            </View>
           </View>
 
           {/* Trip Details */}
@@ -320,17 +309,11 @@ const styles = StyleSheet.create({
   },
   customerSection: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
-  },
-  customerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
   },
   customerAvatar: {
     width: 48,
@@ -348,30 +331,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1E293B',
-    marginBottom: 4,
-  },
-  customerPhone: {
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 4,
-  },
-  customerRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginLeft: 4,
-  },
-  phoneButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#EBF4FF',
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   tripSection: {
     marginBottom: 20,
