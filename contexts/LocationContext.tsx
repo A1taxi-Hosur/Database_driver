@@ -211,7 +211,7 @@ export function LocationProvider({ children }: LocationProviderProps) {
       
       if (success) {
         console.log('✅ Background location tracking started successfully')
-        console.log('✅ Driver location will be sent every 10 seconds even when app is closed')
+        console.log('✅ Driver location will be sent every 5 seconds even when app is closed')
       } else {
         console.log('❌ Failed to start background location tracking')
       }
@@ -324,11 +324,7 @@ export function LocationProvider({ children }: LocationProviderProps) {
 
       // Step 2: Send to edge function
       console.log('📤 Sending initial location to edge function...')
-      
-      // CRITICAL: Use coordinates that match customer search area
-      locationPayload.latitude = 12.7401984  // Bangalore coordinates
-      locationPayload.longitude = 77.824
-      console.log('📍 Using Bangalore coordinates for driver visibility:', locationPayload.latitude, locationPayload.longitude)
+      console.log('📍 Using GPS coordinates:', locationPayload.latitude, locationPayload.longitude)
       
       try {
         const response = await fetch(`${supabaseUrl}/functions/v1/update-driver-location`, {
@@ -677,25 +673,25 @@ export function LocationProvider({ children }: LocationProviderProps) {
       await updateLocationWithGoogleMaps()
 
       if (Platform.OS === 'web') {
-        // Web: Use interval-based updates every 10 seconds
-        console.log('🌐 Starting web-based location tracking with 10s intervals')
+        // Web: Use interval-based updates every 5 seconds
+        console.log('🌐 Starting web-based location tracking with 5s intervals')
         const intervalId = setInterval(async () => {
-          console.log('🔄 10-second interval location update...')
+          console.log('🔄 5-second interval location update...')
           await updateLocationWithGoogleMaps()
-        }, 10000) // Update every 10 seconds
+        }, 5000) // Update every 5 seconds
 
         setLocationSubscription({ remove: () => clearInterval(intervalId) } as any)
       } else {
-        // Native: Use location watching every 10 seconds
-        console.log('📱 Starting native location watching with 10s intervals')
+        // Native: Use location watching every 5 seconds
+        console.log('📱 Starting native location watching with 5s intervals')
         const subscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.BestForNavigation,
-            timeInterval: 10000, // Every 10 seconds
-            distanceInterval: 10, // Every 10 meters
+            timeInterval: 5000, // Every 5 seconds
+            distanceInterval: 5, // Every 5 meters
           },
           async (location) => {
-            console.log('📍 10-second location watch update:', location.coords)
+            console.log('📍 5-second location watch update:', location.coords)
             setCurrentLocation(location)
             
             const address = await reverseGeocode(

@@ -212,7 +212,7 @@ async function startWebBackgroundTracking(driverUserId: string): Promise<boolean
       clearInterval(webLocationInterval);
     }
     
-    // Start interval to update location every 30 seconds
+    // Start interval to update location every 5 seconds
     webLocationInterval = setInterval(async () => {
       try {
         console.log('🌐 Web background location update...');
@@ -252,7 +252,7 @@ async function startWebBackgroundTracking(driverUserId: string): Promise<boolean
       } catch (error) {
         console.error('Web background location error:', error);
       }
-    }, 30000); // Every 30 seconds
+    }, 5000); // Every 5 seconds
     
     // Store interval reference
     await AsyncStorage.setItem(WEB_LOCATION_INTERVAL_KEY, 'active');
@@ -305,9 +305,9 @@ export class BackgroundLocationService {
       // Start background location tracking
       await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
         accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 10000, // Every 10 seconds
-        distanceInterval: 10, // Every 10 meters
-        deferredUpdatesInterval: 10000,
+        timeInterval: 5000, // Every 5 seconds
+        distanceInterval: 5, // Every 5 meters
+        deferredUpdatesInterval: 5000,
         foregroundService: {
           notificationTitle: 'A1 Taxi - Driver Online',
           notificationBody: 'Sharing location with customers for ride requests',
@@ -317,14 +317,14 @@ export class BackgroundLocationService {
 
       // Also register background fetch as fallback
       await BackgroundFetch.registerTaskAsync(BACKGROUND_FETCH_TASK, {
-        minimumInterval: 10, // 10 seconds
+        minimumInterval: 5, // 5 seconds
         stopOnTerminate: false,
         startOnBoot: true,
       });
 
       console.log('✅ Background location tracking started');
       console.log('✅ Foreground service notification will be shown');
-      console.log('✅ Location will update every 10 seconds even when app is closed');
+      console.log('✅ Location will update every 5 seconds even when app is closed');
       
       return true;
     } catch (error) {
