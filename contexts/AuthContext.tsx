@@ -50,7 +50,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   useEffect(() => {
-    initializeAuth()
+    // Safety timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      console.warn('⚠️ Auth initialization timeout - forcing loading to false')
+      setLoading(false)
+    }, 10000) // 10 second timeout
+
+    initializeAuth().finally(() => {
+      clearTimeout(timeout)
+    })
+
+    return () => clearTimeout(timeout)
   }, [])
 
   const initializeAuth = async () => {
@@ -87,7 +97,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (!sessionDriverError && sessionDriverData && sessionDriverData.length > 0) {
             const driverRecord = sessionDriverData[0]
             console.log('✅ Found driver data for existing session')
-            
+
             const sessionUser = {
               id: existingSession.session.user.id,
               email: existingSession.session.user.email || 'driver@example.com',
@@ -99,21 +109,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             }
-            
+
             const completeDriver = {
               ...driverRecord,
               user: sessionUser,
               vehicle: driverRecord.vehicles
             }
-            
+
             setUser(sessionUser as any)
             setDriver(completeDriver)
             setLoading(false)
             console.log('✅ Session restored from Supabase client')
             return
+          } else {
+            console.log('⚠️ No driver record found for existing session or query error:', sessionDriverError)
+            // Clear the session and let user login again
+            await supabase.auth.signOut()
           }
         } catch (sessionError) {
           console.log('⚠️ Could not load driver data for session:', sessionError)
+          // Clear the session on error
+          await supabase.auth.signOut()
         }
       }
       
