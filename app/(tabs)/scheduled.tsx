@@ -531,7 +531,7 @@ export default function ScheduledScreen() {
             full_name,
             phone_number
           ),
-          vehicles!fk_drivers_vehicle(
+          vehicles!drivers_vehicle_id_fkey(
             id,
             make,
             model,

@@ -71,7 +71,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             .from('drivers')
             .select(`
               *,
-              vehicles!fk_drivers_vehicle(
+              vehicles!drivers_vehicle_id_fkey(
                 id,
                 registration_number,
                 make,
@@ -135,7 +135,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               .from('drivers')
               .select(`
                 *,
-                vehicles!fk_drivers_vehicle(
+                vehicles!drivers_vehicle_id_fkey(
                   id,
                   registration_number,
                   make,
