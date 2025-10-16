@@ -589,11 +589,19 @@ export default function ScheduledScreen() {
       };
 
       // Update driver status back to online
+      console.log('✅ Setting driver status to online...');
       await updateDriverStatus('online');
-      
+      console.log('✅ Driver status updated to online');
+
       // Clear current booking
       setCurrentBooking(null);
-      
+      console.log('✅ Current booking cleared');
+
+      // Reload available bookings to show driver as available for new trips
+      console.log('🔄 Reloading available scheduled bookings...');
+      await loadScheduledBookings();
+      console.log('✅ Scheduled bookings reloaded');
+
       // Show completion modal
       setCompletionData(completionData);
       setShowCompletionModal(true);
